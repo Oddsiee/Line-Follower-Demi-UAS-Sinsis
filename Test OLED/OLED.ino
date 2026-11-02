@@ -13,7 +13,7 @@ void loop() {
 
   u8g2.clearBuffer();
 
-  // Teks
+  // Teksi
   u8g2.setFont(u8g2_font_ncenB10_tr);
   u8g2.drawStr(0, 14, "Faiz Anjing!");
   u8g2.setFont(u8g2_font_6x10_tr);
