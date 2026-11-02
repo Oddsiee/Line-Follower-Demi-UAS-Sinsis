@@ -123,7 +123,7 @@ Tabel ini adalah acuan mutlak untuk pembuatan skematik di EasyEDA Pro dan penuli
       DRV_D0 (M1) ◄──┤ 5  PA8       │                          (Kosong) │ PB2       25 ├─x
       DRV_D1 (M1) ◄──┤ 6  PA9       │                       MUX_IN2 ◄───┤ PB1       26 │
       DRV_D2 (M2) ◄──┤ 7  PA10      │                       MUX_IN1 ◄───┤ PB0       27 │
-      DRV_D3 (M2) ◄──┤ 8  PA11      │                     SENS_OUT4 ───►│ PA7       28 │
+          (Kosong) x─┤ 8  PA11      │                     SENS_OUT4 ───►│ PA7       28 │
           (Kosong) x─┤ 9  PA12      │                     SENS_OUT3 ───►│ PA6       29 │
           (Kosong) x─┤ 10 PA15      │                     SENS_OUT2 ───►│ PA5       30 │
           (Kosong) x─┤ 11 PB3       │                     SENS_OUT1 ───►│ PA4       31 │
@@ -132,7 +132,7 @@ Tabel ini adalah acuan mutlak untuk pembuatan skematik di EasyEDA Pro dan penuli
          OLED_SCL ◄──┤ 14 PB6       │                      BTN_DOWN ───►│ PA1       34 │
          OLED_SDA ◄──┤ 15 PB7       │                      BTN_UP   ───►│ PA0       35 │
           (Kosong) x─┤ 16 PB8       │                      BTN_RST  ───►│ NRST (R)  36 │
-          (Kosong) x─┤ 17 PB9       │                                   │ PC15      37 ├─x (Kosong)
+      DRV_D3 (M2) ◄──┤ 17 PB9       │                                   │ PC15      37 ├─x (Kosong)
           (Kosong) x─┤ 18 5V        │                                   │ PC14      38 ├─x (Kosong)
   (Ke OLED)   GND ◄──┤ 19 GND       │                                   │ PC13      39 ├─x (LED Internal)
   (Ke OLED)  +3V3 ──►│ 20 3V3       │                                   │ VBAT      40 ├─x (Kosong)
