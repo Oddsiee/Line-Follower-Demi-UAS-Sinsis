@@ -2,7 +2,7 @@
 
 > **Catatan Konteks untuk AI Assistant (LLM Context Prompt):**  
 > Dokumen ini adalah referensi arsitektur perangkat keras (*hardware*), skematik, *pinout mapping*, dan aturan *layout* PCB yang sudah difinalisasi untuk proyek robot *Line Follower* tim Mahasiswa S1 Teknik Elektro Universitas Diponegoro (Undip) dalam menghadapi kompetisi nasional **Tech Enthusiast Day (TED) 2026** di Sekolah Vokasi UGM. Saat membantu menulis kode program (*firmware*), melakukan *debugging*, atau mengevaluasi rangkaian, **wajib mengacu secara ketat pada konfigurasi pin dan spesifikasi komponen di bawah ini.**
-
+sssss
 ---
 
 ## 1. Profil Proyek & Spesifikasi Kompetisi (TED 2026 - SV UGM)
