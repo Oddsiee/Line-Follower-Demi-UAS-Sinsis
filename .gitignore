@@ -1,9 +1,21 @@
+# STM32CubeIDE
 Debug/
 Release/
 .metadata/
 .settings/
-*.elf
-*.bin
-*.map
+*.o
+*.d
 *.su
-*.cyclo
+*.elf
+*.map
+*.list
+*.launch
+
+# Python
+__pycache__/
+*.pyc
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
