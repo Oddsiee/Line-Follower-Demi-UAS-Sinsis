@@ -91,9 +91,12 @@ Write-Host "  ok  startup_stm32f411xe.s"
 # ---------- Link ----------
 Write-Host "=== Link ===" -ForegroundColor Cyan
 $elf = Join-Path $out "test_oled.elf"
+if (Test-Path $elf) { Remove-Item $elf -Force }
+$ErrorActionPreference = 'Continue'
 & $GCC @cpu -T "$here\STM32F411CEUX_FLASH.ld" --specs=nano.specs --specs=nosys.specs `
-    '-Wl,--gc-sections' '-Wl,-Map=build\test_oled.map' -o $elf @objs -lm
-if ($LASTEXITCODE -ne 0) { throw "Gagal link" }
+    '-Wl,--gc-sections' '-Wl,-Map=build\test_oled.map' -o $elf @objs -lm 2>&1 | Out-Null
+$ErrorActionPreference = 'Stop'
+if (-not (Test-Path $elf)) { throw "Gagal link (test_oled.elf tidak terbentuk)" }
 
 # ---------- Output ----------
 Write-Host "=== Hasil ===" -ForegroundColor Green
