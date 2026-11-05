@@ -11,6 +11,11 @@ Release/
 *.list
 *.launch
 
+# Build output (standalone build.ps1)
+build/
+*.hex
+*.bin
+
 # Python
 __pycache__/
 *.pyc
