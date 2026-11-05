@@ -12,6 +12,11 @@ extern I2C_HandleTypeDef SH1106_HI2C;
 static uint8_t s_fb[8][SH1106_WIDTH];
 static uint8_t s_addr7 = SH1106_I2C_ADDR;
 
+/* Statistik untuk diagnosa (bisa dibaca via SWD). */
+volatile uint32_t g_sh1106_ok   = 0;
+volatile uint32_t g_sh1106_fail = 0;
+volatile uint32_t g_sh1106_last = 0;
+
 /* ============================================================
  * Font 6x8 (ASCII 32..126). 6 byte/glyph = 6 kolom, bit 0 = baris atas.
  * Di-generate oleh Tools/gen_font.py (Consolas, supersampled).
@@ -117,11 +122,56 @@ static const uint8_t FONT6x8[95][6] = {
 /* ============================================================
  * I2C low-level
  * ============================================================ */
+
+/* Bus recovery: kalau SDA ditahan LOW oleh slave (mis. MCU reset di tengah
+ * transaksi), clock SCL 9x supaya slave melepas SDA, lalu STOP.
+ * Tanpa ini, flag BUSY di I2C1 bisa macet permanen. */
+static void i2c_bus_recover(void)
+{
+    GPIO_InitTypeDef g = {0};
+
+    /* lepas pin dari AF, jadikan GPIO open-drain */
+    g.Pin       = GPIO_PIN_6 | GPIO_PIN_7;
+    g.Mode      = GPIO_MODE_OUTPUT_OD;
+    g.Pull      = GPIO_PULLUP;
+    g.Speed     = GPIO_SPEED_FREQ_VERY_HIGH;
+    HAL_GPIO_Init(GPIOB, &g);
+
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_7, GPIO_PIN_SET);   /* SDA high */
+    for (int i = 0; i < 9; i++) {
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_RESET);
+        for (volatile int d = 0; d < 200; d++) { }
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_SET);
+        for (volatile int d = 0; d < 200; d++) { }
+    }
+    /* kondisi STOP: SDA low -> SCL high -> SDA high */
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_7, GPIO_PIN_RESET);
+    for (volatile int d = 0; d < 200; d++) { }
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_SET);
+    for (volatile int d = 0; d < 200; d++) { }
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_7, GPIO_PIN_SET);
+    for (volatile int d = 0; d < 200; d++) { }
+
+    /* reset peripheral I2C supaya flag BUSY hilang */
+    __HAL_RCC_I2C1_FORCE_RESET();
+    __HAL_RCC_I2C1_RELEASE_RESET();
+
+    /* kembalikan pin ke AF4 I2C1 */
+    g.Mode      = GPIO_MODE_AF_OD;
+    g.Alternate = GPIO_AF4_I2C1;
+    HAL_GPIO_Init(GPIOB, &g);
+
+    /* peripheral baru di-reset -> handle HAL harus di-init ulang */
+    HAL_I2C_Init(&SH1106_HI2C);
+}
+
 static void write_cmd(uint8_t cmd)
 {
     /* control byte 0x00 = perintah */
-    HAL_I2C_Mem_Write(&SH1106_HI2C, (uint16_t)(s_addr7 << 1), 0x00,
-                      I2C_MEMADD_SIZE_8BIT, &cmd, 1, SH1106_TIMEOUT);
+    HAL_StatusTypeDef st = HAL_I2C_Mem_Write(&SH1106_HI2C, (uint16_t)(s_addr7 << 1), 0x00,
+                                             I2C_MEMADD_SIZE_8BIT, &cmd, 1, SH1106_TIMEOUT);
+    g_sh1106_last = (uint32_t)st;
+    if (st == HAL_OK) g_sh1106_ok++; else g_sh1106_fail++;
 }
 
 static void write_data(const uint8_t *data, uint16_t len)
@@ -136,6 +186,10 @@ static void write_data(const uint8_t *data, uint16_t len)
  * ============================================================ */
 void SH1106_Init(void)
 {
+    /* Kalau MCU reset di tengah transaksi I2C, slave bisa menahan SDA LOW
+     * dan flag BUSY jadi macet. Recover dulu sebelum init. */
+    i2c_bus_recover();
+
     /* Jika gambar terbalik/mirror, tukar 0xA1<->0xA0 dan 0xC8<->0xC0. */
     static const uint8_t init[] = {
         0xAE,          /* display off                  */

@@ -84,3 +84,24 @@ Flash terverifikasi: vector table di `0x08000000` berisi
 | Gambar terbalik | Tukar `0xA1`↔`0xA0` dan `0xC8`↔`0xC0` di `sh1106.c` (`SH1106_Init`). |
 | Terdeteksi di `0x3D` | Sudah otomatis — `TestOled_Init()` scan dua alamat. |
 | Warning `_close/_read not implemented` | Normal, dari `--specs=nosys.specs`. Abaikan. |
+
+## Kalau layar gelap lagi
+
+**Cek `__HAL_RCC_I2C1_CLK_ENABLE()` dulu.** Ini penyebab yang sudah terbukti:
+tanpa clock, register I2C1 tidak bisa diakses dan gejalanya persis seperti
+"OLED tidak terpasang" — scan I2C mengembalikan 0 device.
+
+Kalau masih gelap, jalankan diagnosa bertahap (lihat `DIAGNOSA.md`):
+
+```powershell
+.\run_pullup.ps1      # ada pull-up di bus?
+.\run_slowscan.ps1    # OLED ACK di kecepatan lambat?
+.\run_speedtest.ps1   # kecepatan mana yang bekerja?
+```
+
+## Riwayat perbaikan
+
+| Tanggal | Masalah | Perbaikan |
+|---|---|---|
+| 2026-11-05 | Layar gelap, I2C scan 0 device | `__HAL_RCC_I2C1_CLK_ENABLE()` hilang di `MX_I2C1_Init()` |
+| 2026-11-05 | Flag BUSY bisa macet setelah reset | Tambah `i2c_bus_recover()` di `SH1106_Init()` |

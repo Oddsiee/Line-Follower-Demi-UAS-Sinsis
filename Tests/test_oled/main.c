@@ -41,6 +41,9 @@ static void SystemClock_Config(void)
 /* ---------- I2C1: PB6/PB7, 400 kHz ---------- */
 static void MX_I2C1_Init(void)
 {
+    /* WAJIB: tanpa ini register I2C1 tidak bisa diakses sama sekali */
+    __HAL_RCC_I2C1_CLK_ENABLE();
+
     hi2c1.Instance             = I2C1;
     hi2c1.Init.ClockSpeed      = 400000;
     hi2c1.Init.DutyCycle       = I2C_DUTYCYCLE_2;

@@ -3,7 +3,23 @@
 Tanggal: 2026-11-05
 Board: STM32F411CEU6 (Black Pill), ST-Link V2J48S7
 
-## Ringkasan
+## ✅ STATUS AKHIR: SELESAI — OLED MENYALA
+
+**Akar masalah:** `MX_I2C1_Init()` di `main.c` tidak pernah memanggil
+`__HAL_RCC_I2C1_CLK_ENABLE()`. Tanpa clock, register I2C1 tidak bisa diakses
+sama sekali — peripheral-nya mati walau kodenya terlihat benar.
+
+**Perbaikan:**
+1. Tambah `__HAL_RCC_I2C1_CLK_ENABLE()` di `MX_I2C1_Init()` (`Tests/test_oled/main.c`).
+2. Tambah `i2c_bus_recover()` di `SH1106_Init()` (`Firmware/LF_TED2026/Core/Src/sh1106.c`)
+   — clock SCL 9× + reset peripheral, supaya flag BUSY tidak macet permanen
+   kalau MCU reset di tengah transaksi I2C.
+
+**Verifikasi:** `g_sh1106_ok` naik terus, `g_sh1106_fail` = 0.
+
+---
+
+## Ringkasan awal (sebelum diperbaiki)
 
 **OLED tidak terdeteksi di bus I2C sama sekali.** Bukan masalah driver, bukan
 masalah firmware, bukan masalah alamat I2C. Masalahnya di **level fisik/elektrikal**.
@@ -112,4 +128,18 @@ cd Tests\test_oled
 - `STM32_Programmer_CLI -r32 <addr> <n>` — parameter kedua adalah **jumlah BYTE**,
   bukan jumlah word. Ini sempat menyebabkan hasil salah baca.
 - Setiap `-c port=SWD` baru akan **reset MCU**, jadi semua variabel harus
-  dibaca dalam satu koneksi.
+  dibaca dalam satu koneksi. Pakai `mode=hotplug` untuk membaca tanpa reset.
+- **Pelajaran utama:** kalau I2C tidak jalan, cek `__HAL_RCC_I2Cx_CLK_ENABLE()`
+  dulu sebelum curiga wiring. Peripheral tanpa clock = register tidak bisa dibaca,
+  gejalanya persis seperti "device tidak ada".
+
+## Alat diagnosa yang tersedia
+
+| Script | Fungsi |
+|---|---|
+| `run_pullup.ps1` | Cek ada/tidak pull-up di bus (pull-down vs pull-up) |
+| `run_slowscan.ps1` | Scan I2C bit-bang ~5 kHz (tahan pull-up lemah) |
+| `run_speedtest.ps1` | Cari kecepatan I2C yang bekerja + layar putih |
+| `read_multibus.ps1` | Scan 5 bus I2C berbeda |
+| `read_pintest.ps1` | Uji pin bisa drive HIGH/LOW |
+| `read_all.ps1` | Baca semua variabel `g_*` dalam satu snapshot SWD |
