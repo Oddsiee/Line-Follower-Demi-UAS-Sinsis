@@ -95,6 +95,11 @@ static void screen_live(void)
 void TestOled_Init(void)
 {
     scan_i2c();                 /* deteksi alamat sebelum init */
+    if (s_oled_3c) {
+        SH1106_SetAddress(0x3C);
+    } else if (s_oled_3d) {
+        SH1106_SetAddress(0x3D);
+    }
     SH1106_Init();
     s_last      = HAL_GetTick();
     s_anim_last = s_last;

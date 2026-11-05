@@ -33,6 +33,9 @@ void SH1106_Update(void);        /* kirim framebuffer ke OLED */
 /* true jika ada device yang ACK di alamat 7-bit (buat scan I2C) */
 bool SH1106_Probe(uint8_t addr7);
 
+/* Pilih alamat OLED hasil scan sebelum memanggil SH1106_Init(). */
+void SH1106_SetAddress(uint8_t addr7);
+
 /* ---- Drawing primitif ---- */
 void SH1106_SetPixel(int x, int y, bool on);
 void SH1106_DrawLine(int x0, int y0, int x1, int y1, bool on);

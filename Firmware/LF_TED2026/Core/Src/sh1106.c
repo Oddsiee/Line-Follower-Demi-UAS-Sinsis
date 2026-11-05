@@ -5,12 +5,12 @@
 /* Handle I2C dari CubeMX (default hi2c1, global di main.c). */
 extern I2C_HandleTypeDef SH1106_HI2C;
 
-#define SH1106_ADDR8   ((uint16_t)((SH1106_I2C_ADDR) << 1))
 #define SH1106_TIMEOUT 100U
 
 /* Framebuffer: 8 halaman x 128 kolom. 1 byte = 8 piksel vertikal,
  * bit 0 = piksel paling atas dalam halaman. */
 static uint8_t s_fb[8][SH1106_WIDTH];
+static uint8_t s_addr7 = SH1106_I2C_ADDR;
 
 /* ============================================================
  * Font 6x8 (ASCII 32..126). 6 byte/glyph = 6 kolom, bit 0 = baris atas.
@@ -120,14 +120,14 @@ static const uint8_t FONT6x8[95][6] = {
 static void write_cmd(uint8_t cmd)
 {
     /* control byte 0x00 = perintah */
-    HAL_I2C_Mem_Write(&SH1106_HI2C, SH1106_ADDR8, 0x00,
+    HAL_I2C_Mem_Write(&SH1106_HI2C, (uint16_t)(s_addr7 << 1), 0x00,
                       I2C_MEMADD_SIZE_8BIT, &cmd, 1, SH1106_TIMEOUT);
 }
 
 static void write_data(const uint8_t *data, uint16_t len)
 {
     /* control byte 0x40 = data */
-    HAL_I2C_Mem_Write(&SH1106_HI2C, SH1106_ADDR8, 0x40,
+    HAL_I2C_Mem_Write(&SH1106_HI2C, (uint16_t)(s_addr7 << 1), 0x40,
                       I2C_MEMADD_SIZE_8BIT, (uint8_t *)data, len, SH1106_TIMEOUT);
 }
 
@@ -184,6 +184,11 @@ bool SH1106_Probe(uint8_t addr7)
 {
     return HAL_I2C_IsDeviceReady(&SH1106_HI2C, (uint16_t)(addr7 << 1), 2, 10)
            == HAL_OK;
+}
+
+void SH1106_SetAddress(uint8_t addr7)
+{
+    s_addr7 = addr7;
 }
 
 /* ============================================================
