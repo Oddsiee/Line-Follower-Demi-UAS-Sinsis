@@ -15,6 +15,15 @@ Firmware ditulis di **STM32CubeIDE** untuk STM32F411CEU6 (Black Pill).
 
 Detail lengkap, pinout, dan aturan PCB: `Documentation/Hardware/dokumentasi_master_robot_line_follower_ted_2026.md`.
 
+## Status progres
+| Modul | Status | Catatan |
+|---|---|---|
+| OLED SH1106 | ✅ jalan | `Tests/test_oled` |
+| Sensor 16CH | 🟡 hardware OK | baseline putih terukur, hitam belum |
+| Motor | ⬜ belum | |
+
+**Data pengukuran sensor:** `Documentation/Hardware/LOG_SENSOR.md`
+
 ## Struktur proyek
 ```
 Firmware/LF_TED2026/   Project STM32CubeIDE (.ioc, Core/Inc, Core/Src)
