@@ -19,9 +19,11 @@ Folder lama `Test OLED` (berisi build lama) bisa dihapus:
 git rm -r "Tests/Test OLED"
 ```
 
-## test_sensor/ — SIAP PAKAI
+## test_sensor/ — PERLU PENYESUAIAN PIN
 
-Test sensor 16CH Dariyan-X standalone (ADC1 PA4–PA7 + mux PB0/PB1):
+Test sensor 16CH Dariyan-X standalone (wiring terbaru: Out1–Out4 pada PA0/PA1/PA2/PB1, ADC1_IN0/IN1/IN2/IN9; mux In1=PA3 dan In2=PB0).
+Sesuaikan GPIO analog, kanal/rank ADC, serta GPIO selektor mux pada firmware uji dan diagnostik sebelum menjalankan perintah berikut; lihat `test_sensor/README.md`.
+
 ```powershell
 cd Tests\test_sensor
 .\build.ps1

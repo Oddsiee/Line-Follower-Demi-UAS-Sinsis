@@ -6,6 +6,8 @@ kalibrasi dan debugging ke depan.
 **Setup uji:** STM32F411CEU6 (Black Pill), sensor diberi daya dari
 power supply eksternal, GND power supply disambung ke GND STM32 + ST-Link.
 
+> Checklist wiring di bawah mengikuti pin terbaru: PA0=Out1, PA1=Out2, PA2=Out3, PA3=In1, PB0=In2, PB1=Out4. Rank ADC Out1–Out4 memakai kanal 0, 1, 2, 9; selektor mux memakai GPIOA pin 3 dan GPIOB pin 0. Data bertanggal 2026-11-06 adalah arsip pengukuran sebelumnya. Sesuaikan GPIO analog, kanal/rank ADC, serta GPIO selektor mux pada firmware normal dan diagnostik, lalu uji ulang pada wiring baru sebelum memakai hasil sebagai baseline kalibrasi.
+
 ---
 
 ## 2026-11-06 — Baseline kertas PUTIH
@@ -101,14 +103,14 @@ cd Tests\test_sensor
 
 | Pin sensor | Nama | → STM32 |
 |---|---|---|
-| 1 | Out1 | PA4 |
+| 1 | Out1 | PA0 (ADC1_IN0) |
 | 2 | Gnd | GND |
-| 3 | Out2 | PA5 |
-| 4 | Out3 | PA6 |
-| 5 | In1 | PB0 |
-| 6 | In2 | PB1 |
+| 3 | Out2 | PA1 (ADC1_IN1) |
+| 4 | Out3 | PA2 (ADC1_IN2) |
+| 5 | In1 | PA3 (GPIO output) |
+| 6 | In2 | PB0 (GPIO output) |
 | 7 | Vcc | 3V3 (atau PSU eksternal) |
-| 8 | Out4 | PA7 |
+| 8 | Out4 | PB1 (ADC1_IN9) |
 
 **Ground bersama wajib:**
 

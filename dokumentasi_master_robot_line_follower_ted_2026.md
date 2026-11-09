@@ -59,16 +59,23 @@ Sistem kelistrikan dirancang menggunakan topologi **Single Logic Rail ($+3.3\tex
 
 Tabel ini adalah acuan mutlak untuk pembuatan skematik di EasyEDA Pro dan penulisan program (*firmware*):
 
+Ringkasan pin sesuai urutan header STM32:
+
+* **Sensor:** `PB1`, `PB0`, `PA3`, `PA2`, `PA1`, `PA0` = `Out4`, `In2`, `In1`, `Out3`, `Out2`, `Out1`.
+* **Tombol:** `PA7`, `PA6`, `PA5`, `PA4`, `R` = `UP`, `DOWN`, `OK`, `BACK`, `HARD RESET`.
+* **OLED:** `PB7` = `SDA`, `PB6` = `SCL` (hardware I2C1).
+* **Driver motor:** `PA8`, `PA9`, `PA10`, `PA11` = `D0`, `D1`, `D2`, `D3`.
+
 | Komponen / Modul | Nama Pin Komponen | Nama NetLabel (EasyEDA) | Pin STM32F411 (Black Pill) | Konfigurasi Software / Peripheral |
 | :--- | :--- | :--- | :--- | :--- |
-| **Sensor Dariyan-X (Pin 1)** | `Out1` | `SENS_OUT1` | **`PA4`** | `ADC1_IN4` (Baca grup sensor 1–4) |
+| **Sensor Dariyan-X (Pin 1)** | `Out1` | `SENS_OUT1` | **`PA0`** | `ADC1_IN0` (Baca grup sensor 1–4) |
 | **Sensor Dariyan-X (Pin 2)** | `Gnd` | `GND` | **`G` (`GND`)** | Ground Sistem |
-| **Sensor Dariyan-X (Pin 3)** | `Out2` | `SENS_OUT2` | **`PA5`** | `ADC1_IN5` (Baca grup sensor 5–8) |
-| **Sensor Dariyan-X (Pin 4)** | `Out3` | `SENS_OUT3` | **`PA6`** | `ADC1_IN6` (Baca grup sensor 9–12) |
-| **Sensor Dariyan-X (Pin 5)** | `In1` | `MUX_IN1` | **`PB0`** | `GPIO_Output` (Selektor Multiplexer Bit 0) |
-| **Sensor Dariyan-X (Pin 6)** | `In2` | `MUX_IN2` | **`PB1`** | `GPIO_Output` (Selektor Multiplexer Bit 1) |
+| **Sensor Dariyan-X (Pin 3)** | `Out2` | `SENS_OUT2` | **`PA1`** | `ADC1_IN1` (Baca grup sensor 5–8) |
+| **Sensor Dariyan-X (Pin 4)** | `Out3` | `SENS_OUT3` | **`PA2`** | `ADC1_IN2` (Baca grup sensor 9–12) |
+| **Sensor Dariyan-X (Pin 5)** | `In1` | `MUX_IN1` | **`PA3`** | `GPIO_Output` (Selektor Multiplexer Bit 0) |
+| **Sensor Dariyan-X (Pin 6)** | `In2` | `MUX_IN2` | **`PB0`** | `GPIO_Output` (Selektor Multiplexer Bit 1) |
 | **Sensor Dariyan-X (Pin 7)** | `Vcc` | `+3V3_SYS` | **`3V3`** | Suplai Daya Sensor $+3.3\text{ V}$ |
-| **Sensor Dariyan-X (Pin 8)** | `Out4` | `SENS_OUT4` | **`PA7`** | `ADC1_IN7` (Baca grup sensor 13–16) |
+| **Sensor Dariyan-X (Pin 8)** | `Out4` | `SENS_OUT4` | **`PB1`** | `ADC1_IN9` (Baca grup sensor 13–16) |
 | **Driver ZK-5AD (Pin 1)** | `GND` | `GND` | **`G` (`GND`)** | Referensi Ground Sinyal PWM |
 | **Driver ZK-5AD (Pin 2)** | `3V3` | *(Tidak Disambung / NC)* | **NC** | **JANGAN DISAMBUNG!** |
 | **Driver ZK-5AD (Pin 3)** | `D0` | `DRV_D0` | **`PA8`** | `TIM1_CH1` (PWM Motor 1 / Kiri - IN1) |
@@ -80,10 +87,10 @@ Tabel ini adalah acuan mutlak untuk pembuatan skematik di EasyEDA Pro dan penuli
 | **OLED 1.3" SH1106 (Pin 2)** | `GND` | `GND` | **`GND` (Pin 19)** | Ground Layar |
 | **OLED 1.3" SH1106 (Pin 3)** | `SCL` | `OLED_SCL` | **`PB6`** | `I2C1_SCL` (Hardware I2C1 Clock) |
 | **OLED 1.3" SH1106 (Pin 4)** | `SDA` | `OLED_SDA` | **`PB7`** | `I2C1_SDA` (Hardware I2C1 Data) |
-| **Tombol Menu 1 (UP)** | Pin 1–2 (Input), Pin 3–4 (GND) | `BTN_UP` | **`PA0`** | `INPUT_PULLUP` (Aktif `LOW` saat ditekan) |
-| **Tombol Menu 2 (DOWN)** | Pin 1–2 (Input), Pin 3–4 (GND) | `BTN_DOWN` | **`PA1`** | `INPUT_PULLUP` (Aktif `LOW` saat ditekan) |
-| **Tombol Menu 3 (OK/ENTER)** | Pin 1–2 (Input), Pin 3–4 (GND) | `BTN_OK` | **`PA2`** | `INPUT_PULLUP` (Aktif `LOW` saat ditekan) |
-| **Tombol Menu 4 (BACK)** | Pin 1–2 (Input), Pin 3–4 (GND) | `BTN_BACK` | **`PA3`** | `INPUT_PULLUP` (Aktif `LOW` saat ditekan) |
+| **Tombol Menu 1 (UP)** | Pin 1–2 (Input), Pin 3–4 (GND) | `BTN_UP` | **`PA7`** | `INPUT_PULLUP` (Aktif `LOW` saat ditekan) |
+| **Tombol Menu 2 (DOWN)** | Pin 1–2 (Input), Pin 3–4 (GND) | `BTN_DOWN` | **`PA6`** | `INPUT_PULLUP` (Aktif `LOW` saat ditekan) |
+| **Tombol Menu 3 (OK/ENTER)** | Pin 1–2 (Input), Pin 3–4 (GND) | `BTN_OK` | **`PA5`** | `INPUT_PULLUP` (Aktif `LOW` saat ditekan) |
+| **Tombol Menu 4 (BACK)** | Pin 1–2 (Input), Pin 3–4 (GND) | `BTN_BACK` | **`PA4`** | `INPUT_PULLUP` (Aktif `LOW` saat ditekan) |
 | **Tombol Ke-5 (HARD RESET)**| Pin 1–2 (Input), Pin 3–4 (GND) | `BTN_RST` | **`R` (`NRST` - Pin 36)**| Hardware Reset (Langsung *restart* MCU) |
 
 ---
@@ -121,18 +128,18 @@ Tabel ini adalah acuan mutlak untuk pembuatan skematik di EasyEDA Pro dan penuli
           (Kosong) x─┤ 3  PB14      │                                   │ 3V3       23 ◄──── +3V3_SYS ( + C3 )
           (Kosong) x─┤ 4  PB15      │                          (Kosong) │ PB10      24 ├─x
       DRV_D0 (M1) ◄──┤ 5  PA8       │                          (Kosong) │ PB2       25 ├─x
-      DRV_D1 (M1) ◄──┤ 6  PA9       │                       MUX_IN2 ◄───┤ PB1       26 │
-      DRV_D2 (M2) ◄──┤ 7  PA10      │                       MUX_IN1 ◄───┤ PB0       27 │
-          (Kosong) x─┤ 8  PA11      │                     SENS_OUT4 ───►│ PA7       28 │
-          (Kosong) x─┤ 9  PA12      │                     SENS_OUT3 ───►│ PA6       29 │
-          (Kosong) x─┤ 10 PA15      │                     SENS_OUT2 ───►│ PA5       30 │
-          (Kosong) x─┤ 11 PB3       │                     SENS_OUT1 ───►│ PA4       31 │
-          (Kosong) x─┤ 12 PB4       │                      BTN_BACK ───►│ PA3       32 │
-          (Kosong) x─┤ 13 PB5       │                      BTN_OK   ───►│ PA2       33 │
-         OLED_SCL ◄──┤ 14 PB6       │                      BTN_DOWN ───►│ PA1       34 │
-         OLED_SDA ◄──┤ 15 PB7       │                      BTN_UP   ───►│ PA0       35 │
+      DRV_D1 (M1) ◄──┤ 6  PA9       │                     SENS_OUT4 ───►│ PB1       26 │
+      DRV_D2 (M2) ◄──┤ 7  PA10      │                       MUX_IN2 ◄───┤ PB0       27 │
+      DRV_D3 (M2) ◄──┤ 8  PA11      │                      BTN_UP   ───►│ PA7       28 │
+          (Kosong) x─┤ 9  PA12      │                      BTN_DOWN ───►│ PA6       29 │
+          (Kosong) x─┤ 10 PA15      │                      BTN_OK   ───►│ PA5       30 │
+          (Kosong) x─┤ 11 PB3       │                      BTN_BACK ───►│ PA4       31 │
+          (Kosong) x─┤ 12 PB4       │                       MUX_IN1 ◄───┤ PA3       32 │
+          (Kosong) x─┤ 13 PB5       │                     SENS_OUT3 ───►│ PA2       33 │
+         OLED_SCL ◄──┤ 14 PB6       │                     SENS_OUT2 ───►│ PA1       34 │
+         OLED_SDA ◄──┤ 15 PB7       │                     SENS_OUT1 ───►│ PA0       35 │
           (Kosong) x─┤ 16 PB8       │                      BTN_RST  ───►│ NRST (R)  36 │
-      DRV_D3 (M2) ◄──┤ 17 PB9       │                                   │ PC15      37 ├─x (Kosong)
+          (Kosong) x─┤ 17 PB9       │                                   │ PC15      37 ├─x (Kosong)
           (Kosong) x─┤ 18 5V        │                                   │ PC14      38 ├─x (Kosong)
   (Ke OLED)   GND ◄──┤ 19 GND       │                                   │ PC13      39 ├─x (LED Internal)
   (Ke OLED)  +3V3 ──►│ 20 3V3       │                                   │ VBAT      40 ├─x (Kosong)
@@ -161,10 +168,12 @@ Konversi satuan dasar di EasyEDA Pro: **$10\text{ mil} = 0.254\text{ mm}$** ($1\
 Bagian ini wajib diperhatikan saat menulis program di Arduino IDE (`STM32duino`) atau STM32CubeIDE:
 
 ### A. Pembacaan Sensor 16CH Dariyan-X (Dual 4-Ch Multiplexer)
-Kepala sensor menggunakan 2 pin selektor digital (`PB0` untuk `In1`, `PB1` untuk `In2`) dan 4 pin pembacaan analog (`PA4`=`Out1`, `PA5`=`Out2`, `PA6`=`Out3`, `PA7`=`Out4`).
-* Setiap perubahan kombinasi bit pada `(In2, In1)` yaitu `00`, `01`, `10`, dan `11`, berikan jeda *settling time* singkat (misal `delayMicroseconds(5)` s.d. `10`) sebelum membaca keempat kanal ADC (`PA4`–`PA7`) secara berurutan sehingga didapatkan total $4 \times 4 = 16$ nilai sensor.
+Kepala sensor menggunakan 2 pin selektor digital (`PA3` untuk `In1`, `PB0` untuk `In2`) dan 4 pin pembacaan analog (`PA0`=`Out1`, `PA1`=`Out2`, `PA2`=`Out3`, `PB1`=`Out4`).
+* Setiap perubahan kombinasi bit pada `(In2, In1)` yaitu `00`, `01`, `10`, dan `11`, berikan jeda *settling time* singkat (misal `delayMicroseconds(5)` s.d. `10`) sebelum membaca keempat kanal ADC secara berurutan: `PA0` (`ADC1_IN0`), `PA1` (`ADC1_IN1`), `PA2` (`ADC1_IN2`), lalu `PB1` (`ADC1_IN9`), sehingga didapatkan total $4 \times 4 = 16$ nilai sensor.
+* Atur rank ADC 1–4 ke kanal **0, 1, 2, 9** sesuai Out1–Out4. Selektor mux berada di dua port GPIO: bit 0 (`In1`) pada `GPIOA` pin 3 dan bit 1 (`In2`) pada `GPIOB` pin 0; tulis masing-masing port secara terpisah sebelum jeda settling.
 
 ### B. Layar OLED 1.3" (Wajib Driver SH1106)
+* **Wiring I2C1:** `SDA` ke `PB7`, `SCL` ke `PB6`.
 * Layar OLED $1.3\text{"}$ **menggunakan chip SH1106, BUKAN SSD1306**. Menggunakan library `Adafruit_SSD1306` akan membuat layar gelap total meski kabel benar.
 * **Rekomendasi Library:** Gunakan **`U8g2`** dengan konstruktor:
   ```cpp
@@ -174,6 +183,7 @@ Kepala sensor menggunakan 2 pin selektor digital (`PB0` untuk `In1`, `PB1` untuk
 
 ### C. Kontrol Driver Motor ZK-5AD (Dual H-Bridge)
 Logika pengendalian kecepatan dan arah putaran per motor menggunakan sinyal PWM pada `PA8`–`PA11` (`TIM1`):
+* `D0`=`PA8`, `D1`=`PA9`, `D2`=`PA10`, `D3`=`PA11`. PA11 tetap dipakai untuk motor; USB data tidak digunakan bersamaan dengan PWM pada pin ini. Flash/debug menggunakan ST-Link melalui SWD.
 * **Maju (Forward):** Pin 1 (`D0` / `D2`) diberi sinyal `PWM`, Pin 2 (`D1` / `D3`) diberi `LOW (0)`.
 * **Mundur (Reverse):** Pin 1 (`D0` / `D2`) diberi `LOW (0)`, Pin 2 (`D1` / `D3`) diberi sinyal `PWM`.
 * **Rem Aktif (Brake):** Kedua pin diberi logika `HIGH (1)`.

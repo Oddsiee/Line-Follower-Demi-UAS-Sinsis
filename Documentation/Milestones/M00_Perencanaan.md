@@ -65,7 +65,7 @@ Sinkronisasi dilakukan setiap 2–3 hari, dimulai pada 6 Nov dan berlanjut pada 
 1. Gunakan `Documentation/PROJECT.md` sebagai ringkasan kontrak lintas-modul dan header firmware sebagai definisi API.
 2. Pastikan target MCU adalah STM32F411CEU6 dan project dibuat/dibuka dari `Firmware/LF_TED2026`.
 3. Sebelum mengerjakan modul, buat branch sesuai kepemilikan lalu konfirmasi baseline project dapat dibuild.
-4. Simpan konfigurasi pin, library, dan perubahan CubeMX di M01; jangan menetapkan pin pengganti PA11, frekuensi PWM, atau periode loop sebagai keputusan final sebelum pengujian milestone pemiliknya.
+4. Simpan konfigurasi pin, library, dan perubahan CubeMX di M01 sesuai wiring master terbaru (motor tetap PA8–PA11). Frekuensi PWM dan periode loop ditetapkan setelah pengujian milestone pemiliknya.
 5. Catat hasil clone-build setiap anggota di tabel hasil uji berikut.
 
 ## Hasil uji
@@ -80,12 +80,12 @@ Sinkronisasi dilakukan setiap 2–3 hari, dimulai pada 6 Nov dan berlanjut pada 
 ## Masalah & solusi
 
 - Nama anggota belum dicatat di repository. Isi tabel kepemilikan sebelum pekerjaan paralel dimulai.
-- PA11 berkonflik dengan USB D-. Pilihan pin pengganti ditetapkan dan diuji pada M01.3.
+- PA11 tetap dipakai untuk PWM motor D3. USB data tidak digunakan bersamaan dengan PWM pada pin ini; verifikasi konfigurasi pada M01.3 dan gunakan SWD untuk flash/debug.
 - Frekuensi PWM, periode loop, dan nilai PID saat ini adalah titik awal, bukan parameter final. Masing-masing diputuskan setelah pengukuran pada M03 dan M08.
 
 ## Catatan untuk milestone berikutnya
 
-- M01 mengunci konfigurasi CubeMX, pin pengganti PA11, SWD, dan UART debug.
+- M01 menyelaraskan konfigurasi CubeMX dengan wiring terbaru, memverifikasi PA11 untuk motor, SWD, dan UART debug.
 - M02 memverifikasi urutan fisik sensor dan waktu scan penuh.
 - M03 mengonfirmasi arah motor serta frekuensi PWM yang layak.
 - M08 mengukur dan menetapkan periode loop kontrol serta parameter PID hasil tuning.

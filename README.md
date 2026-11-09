@@ -13,7 +13,18 @@ Firmware ditulis di **STM32CubeIDE** untuk STM32F411CEU6 (Black Pill).
 | Layar | OLED 1.3" I2C, chip **SH1106** |
 | Daya | LiPo 3S 11.1 V, buck MP1584EN 3.3 V |
 
-Detail lengkap, pinout, dan aturan PCB: `Documentation/Hardware/dokumentasi_master_robot_line_follower_ted_2026.md`.
+Detail lengkap, pinout, dan aturan PCB: [dokumentasi master](dokumentasi_master_robot_line_follower_ted_2026.md).
+
+### Wiring terbaru
+
+| Bagian | Pin STM32 dan sinyal |
+|---|---|
+| Sensor | PA0 = Out1, PA1 = Out2, PA2 = Out3, PA3 = In1, PB0 = In2, PB1 = Out4 |
+| Tombol | PA7 = UP, PA6 = DOWN, PA5 = OK, PA4 = BACK, R (NRST) = HARD RESET |
+| OLED | PB7 = SDA, PB6 = SCL (I2C1) |
+| Driver motor | PA8 = D0, PA9 = D1, PA10 = D2, PA11 = D3 (TIM1_CH1–CH4) |
+
+Pembaruan ini berlaku untuk dokumentasi wiring. Konfigurasi `.ioc` dan firmware sensor/tombol masih perlu disesuaikan dengan pin baru sebelum pengujian ulang.
 
 ## Status progres
 | Modul | Status | Catatan |

@@ -29,13 +29,17 @@ Sensor_ReadRaw -> Calibration (normalisasi) -> Sensor_GetPosition
 | Bersama | config.h, .ioc, README.md |
 
 ## Hal yang wajib diingat (dari dokumentasi master)
+- Sensor: PA0 = Out1 (`ADC1_IN0`), PA1 = Out2 (`ADC1_IN1`), PA2 = Out3 (`ADC1_IN2`), PA3 = In1 (GPIO output), PB0 = In2 (GPIO output), PB1 = Out4 (`ADC1_IN9`). Rank ADC mengikuti urutan kanal 0, 1, 2, 9; selektor mux memakai GPIOA dan GPIOB.
+- Tombol UP/DOWN/OK/BACK: PA7/PA6/PA5/PA4; HARD RESET: R (NRST).
+- OLED I2C1: PB7 = SDA, PB6 = SCL.
+- Driver motor D0/D1/D2/D3: PA8/PA9/PA10/PA11 (`TIM1_CH1–CH4`).
 - OLED memakai **SH1106**, bukan SSD1306 (pakai U8g2).
 - Pin `3V3` dan `VT` di header ZK-5AD **tidak disambung**.
 - Rem aktif = kedua pin driver HIGH; coast = kedua LOW.
 - Batas regulasi: 20x20x10 cm, 3 kg, baterai 12 V +-1,5 V.
-- PA11 (PWM motor kanan IN2) juga pin USB D-; keputusan pin pengganti dicatat di Milestone 1.
+- PA11 tetap PWM motor kanan IN2; USB data tidak digunakan bersamaan dengan PWM pada pin ini. Flash/debug melalui SWD.
 
 ## Keputusan terbuka
-- [ ] Pin pengganti PA11 (M1.3)
+- [ ] Verifikasi PA11 sebagai PWM motor dan konfigurasi USB data nonaktif (M1.3)
 - [ ] Frekuensi PWM motor (M3.1)
 - [ ] Periode loop kontrol (M8.1)

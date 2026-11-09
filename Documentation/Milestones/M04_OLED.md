@@ -8,8 +8,8 @@
 (isi satu-dua kalimat)
 
 ## Sub-milestone
-- [ ] M4.1 Port U8g2 ke HAL I2C1 (SH1106, alamat 0x3C), tampilkan teks
-- [ ] M4.2 Baca tombol UP/DOWN/OK/BACK (aktif LOW) dengan debounce dan long-press
+- [ ] M4.1 Port U8g2 ke HAL I2C1 (SH1106, alamat 0x3C, SDA=PB7 dan SCL=PB6), tampilkan teks
+- [ ] M4.2 Baca tombol UP/DOWN/OK/BACK pada PA7/PA6/PA5/PA4 (aktif LOW) dengan debounce dan long-press; tombol HARD RESET ke R (NRST) dan GND
 - [ ] M4.3 Kerangka menu: navigasi antar layar dan layar status
 
 ## Selesai kalau

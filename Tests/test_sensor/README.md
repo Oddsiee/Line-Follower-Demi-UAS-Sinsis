@@ -6,6 +6,8 @@ Tidak perlu buka STM32CubeIDE.
 > 📊 **Data pengukuran nyata** (baseline putih, karakterisasi mux, VREFINT):
 > [`Documentation/Hardware/LOG_SENSOR.md`](../../Documentation/Hardware/LOG_SENSOR.md)
 
+> **Wiring terbaru:** tabel di bawah memakai Out1–Out4 pada PA0/PA1/PA2/PB1 (`ADC1_IN0/IN1/IN2/IN9`), In1=PA3, dan In2=PB0. Firmware `main.c` dan firmware diagnostik masih perlu disesuaikan pada inisialisasi GPIO analog, kanal/rank ADC, serta GPIO selektor mux sebelum build dan flash untuk wiring ini. Hasil build serta pengukuran yang dicatat di sini berasal dari pengujian sebelumnya; uji ulang setelah penyesuaian pin.
+
 ## Cara pakai
 
 ```powershell
@@ -25,16 +27,18 @@ Baca berulang (pantau saat sensor digeser di atas garis):
 
 Konektor sensor 1x8 pin. Urutan sesuai pinout master:
 
+Pemetaan pin STM32: **PA0, PA1, PA2, PA3, PB0, PB1** = **Out1, Out2, Out3, In1, In2, Out4**.
+
 | Pin sensor | Nama | Sambung ke STM32 | Fungsi |
 |---|---|---|---|
-| **1** | `Out1` | **PA4** | ADC1_IN4 — grup sensor 1–4 |
+| **1** | `Out1` | **PA0** | ADC1_IN0 — grup sensor 1–4 |
 | **2** | `Gnd` | **GND** | Ground |
-| **3** | `Out2` | **PA5** | ADC1_IN5 — grup sensor 5–8 |
-| **4** | `Out3` | **PA6** | ADC1_IN6 — grup sensor 9–12 |
-| **5** | `In1` | **PB0** | Selektor mux bit 0 |
-| **6** | `In2` | **PB1** | Selektor mux bit 1 |
+| **3** | `Out2` | **PA1** | ADC1_IN1 — grup sensor 5–8 |
+| **4** | `Out3` | **PA2** | ADC1_IN2 — grup sensor 9–12 |
+| **5** | `In1` | **PA3** | Selektor mux bit 0 |
+| **6** | `In2` | **PB0** | Selektor mux bit 1 |
 | **7** | `Vcc` | **3V3** | Daya sensor +3.3 V |
-| **8** | `Out4` | **PA7** | ADC1_IN7 — grup sensor 13–16 |
+| **8** | `Out4` | **PB1** | ADC1_IN9 — grup sensor 13–16 |
 
 > **Penting:** pin 2 (Gnd) ada di TENGAH konektor, bukan di ujung.
 > Jangan tertukar dengan urutan "Out1..Out4 lalu Gnd". Ikuti tabel di atas.
@@ -44,12 +48,14 @@ Konektor sensor 1x8 pin. Urutan sesuai pinout master:
 Sensor punya 16 fotodioda tapi hanya 4 output analog. Multiplexer memilih
 4 kanal sekaligus:
 
-| In2 (PB1) | In1 (PB0) | Yang terbaca di Out1..Out4 |
+| In2 (PB0) | In1 (PA3) | Yang terbaca di Out1..Out4 |
 |---|---|---|
 | 0 | 0 | sensor 1, 5, 9, 13 |
 | 0 | 1 | sensor 2, 6, 10, 14 |
 | 1 | 0 | sensor 3, 7, 11, 15 |
 | 1 | 1 | sensor 4, 8, 12, 16 |
+
+In1 berada pada GPIOA pin 3 dan In2 pada GPIOB pin 0. Tulis kedua port sebelum jeda settling. Rank ADC 1–4 harus mengikuti kanal **0, 1, 2, 9** untuk Out1–Out4.
 
 Firmware menyimpan hasil ke `raw[group*4 + mux_state]`, jadi indeks 0..15
 adalah urutan fisik sensor setelah diverifikasi.
@@ -74,14 +80,14 @@ Format baris: `S,v0,v1,...,v15,pos`
 
 ## OLED (opsional)
 
-Kalau OLED terpasang di PB6/PB7, layar menampilkan bar 16 kanal + tabel nilai.
+Kalau OLED terpasang dengan SDA ke PB7 dan SCL ke PB6 (I2C1), layar menampilkan bar 16 kanal + tabel nilai.
 Kalau tidak terpasang, firmware tetap jalan (driver timeout, tidak hang).
 
 ## Isi folder
 
 | File | Fungsi |
 |---|---|
-| `main.c` | Clock HSI 16 MHz, ADC1 scan 4 kanal + DMA, mux PB0/PB1, OLED, UART |
+| `main.c` | Clock HSI 16 MHz, ADC1 scan 4 kanal + DMA, OLED, UART; target mux In1=PA3/In2=PB0 memerlukan penyesuaian firmware |
 | `stm32f4xx_hal_conf.h` | HAL minimal: RCC, GPIO, CORTEX, ADC, DMA, I2C, UART, FLASH, PWR |
 | `stm32f4xx_it.c` | SysTick + DMA2_Stream0 (ADC) |
 | `STM32F411CEUX_FLASH.ld` | Linker script 512K FLASH / 128K RAM |
@@ -129,7 +135,7 @@ Semua 16 sensor di atas kertas putih, ground bersama:
 |---|---|
 | Semua nilai 0 | Sensor tidak dapat daya (pin 7 Vcc), atau GND lepas |
 | Nilai acak 0..4095 tidak stabil | Pin analog floating → Out1..Out4 belum tersambung |
-| Nilai sama semua 16 kanal | In1/In2 (PB0/PB1) tidak tersambung → mux tidak berganti |
+| Nilai sama semua 16 kanal | In1/In2 (PA3/PB0) tidak tersambung atau GPIO selektor belum disesuaikan → mux tidak berganti |
 | `scan_count = 0` | Firmware tidak jalan / board belum di-flash |
 | `adc_err > 0` | Timeout DMA — ADC tidak selesai konversi |
 | **Nilai acak 0..950, mean ~350, state 2/3 saturasi 4095** | **GND power supply TIDAK disambung ke GND STM32** |
