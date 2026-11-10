@@ -33,18 +33,19 @@ $names = @(
   "B. I2C1 PB6/PB7 (AF4)",
   "C. I2C1 PB8/PB9 (AF4)",
   "D. I2C2 PB10/PB11 (AF4)",
-  "E. I2C3 PA8/PC9 (AF4)"
+    "E. I2C3 PA8/PC9 (AF4)",
+    "F. bit-bang SCL/SDA TERTUKAR"
 )
 
 if ($syms.ContainsKey('g_bus_count')) {
     $base = $syms['g_bus_count']
-    $lines = Read-Mem $base 5
+    $lines = Read-Mem $base 6
     $vals = @()
     foreach ($l in $lines) {
         $parts = $l -split '\s+'
         for ($i = 2; $i -lt $parts.Count; $i++) { if ($parts[$i] -match '^[0-9A-Fa-f]{8}$') { $vals += [Convert]::ToUInt32($parts[$i],16) } }
     }
-    for ($i = 0; $i -lt 5; $i++) {
+    for ($i = 0; $i -lt 6; $i++) {
         $c = if ($i -lt $vals.Count) { $vals[$i] } else { 0 }
         $mark = if ($c -gt 0) { "  <== ADA DEVICE" } else { "" }
         Write-Host ("  {0,-26} : {1} device{2}" -f $names[$i], $c, $mark)

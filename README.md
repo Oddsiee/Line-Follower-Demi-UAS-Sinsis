@@ -24,12 +24,12 @@ Detail lengkap, pinout, dan aturan PCB: [dokumentasi master](dokumentasi_master_
 | OLED | PB7 = SDA, PB6 = SCL (I2C1) |
 | Driver motor | PA8 = D0, PA9 = D1, PA10 = D2, PA11 = D3 (TIM1_CH1–CH4) |
 
-Pembaruan ini berlaku untuk dokumentasi wiring. Konfigurasi `.ioc` dan firmware sensor/tombol masih perlu disesuaikan dengan pin baru sebelum pengujian ulang.
+Konfigurasi `.ioc` (`Firmware/LF_TED2026/Tes_Oled_Sensor_Baru.ioc`) dan firmware sensor/tombol sudah disesuaikan dengan pin baru. `Tests/test_sensor` terverifikasi build + flash (scan berjalan, `adc_err` = 0).
 
 ## Status progres
 | Modul | Status | Catatan |
 |---|---|---|
-| OLED SH1106 | ✅ jalan | `Tests/test_oled` |
+| OLED SH1106 | 🔴 tertahan PCB | VCC/GND konektor OLED tertukar di PCB — perbaiki dulu, software sudah siap |
 | Sensor 16CH | 🟡 hardware OK | baseline putih terukur, hitam belum |
 | Motor | ⬜ belum | |
 

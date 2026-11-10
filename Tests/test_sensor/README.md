@@ -6,7 +6,7 @@ Tidak perlu buka STM32CubeIDE.
 > 📊 **Data pengukuran nyata** (baseline putih, karakterisasi mux, VREFINT):
 > [`Documentation/Hardware/LOG_SENSOR.md`](../../Documentation/Hardware/LOG_SENSOR.md)
 
-> **Wiring terbaru:** tabel di bawah memakai Out1–Out4 pada PA0/PA1/PA2/PB1 (`ADC1_IN0/IN1/IN2/IN9`), In1=PA3, dan In2=PB0. Firmware `main.c` dan firmware diagnostik masih perlu disesuaikan pada inisialisasi GPIO analog, kanal/rank ADC, serta GPIO selektor mux sebelum build dan flash untuk wiring ini. Hasil build serta pengukuran yang dicatat di sini berasal dari pengujian sebelumnya; uji ulang setelah penyesuaian pin.
+> **Wiring terbaru:** tabel di bawah memakai Out1–Out4 pada PA0/PA1/PA2/PB1 (`ADC1_IN0/IN1/IN2/IN9`), In1=PA3, dan In2=PB0. Firmware `main.c` (termasuk mode diagnostik) **sudah disesuaikan** ke pinout ini: GPIO analog PA0/PA1/PA2/PB1, rank ADC kanal 0/1/2/9, dan selektor mux PA3/PB0. Build + flash terverifikasi (`scan_count` bertambah, `adc_err` = 0).
 
 ## Cara pakai
 
@@ -87,7 +87,7 @@ Kalau tidak terpasang, firmware tetap jalan (driver timeout, tidak hang).
 
 | File | Fungsi |
 |---|---|
-| `main.c` | Clock HSI 16 MHz, ADC1 scan 4 kanal + DMA, OLED, UART; target mux In1=PA3/In2=PB0 memerlukan penyesuaian firmware |
+| `main.c` | Clock HSI 16 MHz, ADC1 scan 4 kanal (PA0/PA1/PA2/PB1) + DMA, mux In1=PA3/In2=PB0, OLED, UART |
 | `stm32f4xx_hal_conf.h` | HAL minimal: RCC, GPIO, CORTEX, ADC, DMA, I2C, UART, FLASH, PWR |
 | `stm32f4xx_it.c` | SysTick + DMA2_Stream0 (ADC) |
 | `STM32F411CEUX_FLASH.ld` | Linker script 512K FLASH / 128K RAM |
@@ -135,7 +135,7 @@ Semua 16 sensor di atas kertas putih, ground bersama:
 |---|---|
 | Semua nilai 0 | Sensor tidak dapat daya (pin 7 Vcc), atau GND lepas |
 | Nilai acak 0..4095 tidak stabil | Pin analog floating → Out1..Out4 belum tersambung |
-| Nilai sama semua 16 kanal | In1/In2 (PA3/PB0) tidak tersambung atau GPIO selektor belum disesuaikan → mux tidak berganti |
+| Nilai sama semua 16 kanal | In1/In2 (PA3/PB0) tidak tersambung ke sensor → mux tidak berganti |
 | `scan_count = 0` | Firmware tidak jalan / board belum di-flash |
 | `adc_err > 0` | Timeout DMA — ADC tidak selesai konversi |
 | **Nilai acak 0..950, mean ~350, state 2/3 saturasi 4095** | **GND power supply TIDAK disambung ke GND STM32** |

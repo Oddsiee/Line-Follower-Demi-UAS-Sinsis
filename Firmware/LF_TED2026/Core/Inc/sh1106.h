@@ -33,6 +33,19 @@ void SH1106_Update(void);        /* kirim framebuffer ke OLED */
 /* true jika ada device yang ACK di alamat 7-bit (buat scan I2C) */
 bool SH1106_Probe(uint8_t addr7);
 
+/* Scan seluruh bus 0x08..0x77. Mengembalikan jumlah device yang ACK.
+ * Bitmap: bit i = alamat (0x08+i) untuk lo, (0x40+i) untuk hi. */
+uint32_t SH1106_Scan(uint32_t *lo, uint32_t *hi);
+
+/* Statistik diagnosa (bisa dibaca via SWD). */
+extern volatile uint32_t g_sh1106_ok;
+extern volatile uint32_t g_sh1106_fail;
+extern volatile uint32_t g_sh1106_last;
+extern volatile uint32_t g_sh1106_recover;
+extern volatile uint32_t g_sh1106_scan_count;
+extern volatile uint32_t g_sh1106_scan_lo;
+extern volatile uint32_t g_sh1106_scan_hi;
+
 /* Pilih alamat OLED hasil scan sebelum memanggil SH1106_Init(). */
 void SH1106_SetAddress(uint8_t addr7);
 

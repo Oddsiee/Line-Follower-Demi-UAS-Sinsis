@@ -3,7 +3,8 @@
 
 #include <stdint.h>
 
-/* Pemilik: C. Tombol aktif LOW (input pull-up). */
+/* Pemilik: C. Tombol aktif LOW (input pull-up).
+ * Pin: UP=PA7, DOWN=PA6, OK=PA5, BACK=PA4 (lihat config.h). */
 typedef enum { BTN_NONE = 0, BTN_UP, BTN_DOWN, BTN_OK, BTN_BACK } Button_t;
 
 void     Buttons_Init(void);

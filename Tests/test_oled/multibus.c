@@ -17,8 +17,8 @@
 
 I2C_HandleTypeDef h;
 
-volatile uint32_t g_bus[5]      = {0,0,0,0,0};
-volatile uint32_t g_bus_count[5]= {0,0,0,0,0};
+volatile uint32_t g_bus[6]      = {0,0,0,0,0,0};
+volatile uint32_t g_bus_count[6]= {0,0,0,0,0,0};
 volatile uint32_t g_done        = 0;
 volatile uint32_t g_loop        = 0;
 
@@ -115,6 +115,63 @@ static void bb_scan(void)
 }
 
 /* ============================================================
+ * Bit-bang dengan SCL/SDA DITUKAR: SCL = PB7, SDA = PB6
+ * Hipotesis: kabel modul terpasang terbalik.
+ * ============================================================ */
+#define X_SCL_H()  do { GPIOB->BSRR = GPIO_PIN_7; } while(0)
+#define X_SCL_L()  do { GPIOB->BSRR = (uint32_t)GPIO_PIN_7 << 16; } while(0)
+#define X_SDA_H()  do { GPIOB->BSRR = GPIO_PIN_6; } while(0)
+#define X_SDA_L()  do { GPIOB->BSRR = (uint32_t)GPIO_PIN_6 << 16; } while(0)
+#define X_SDA_IN() do { GPIOB->MODER = (GPIOB->MODER & ~(3u << 12)) | (0u << 12); } while(0)
+#define X_SDA_OUT()do { GPIOB->MODER = (GPIOB->MODER & ~(3u << 12)) | (1u << 12); } while(0)
+#define X_SDA_READ() ((GPIOB->IDR & GPIO_PIN_6) ? 1u : 0u)
+
+static void xb_start(void)
+{
+    X_SDA_OUT(); X_SDA_H(); X_SCL_H(); bb_delay();
+    X_SDA_L(); bb_delay();
+    X_SCL_L(); bb_delay();
+}
+
+static void xb_stop(void)
+{
+    X_SDA_OUT(); X_SDA_L(); bb_delay();
+    X_SCL_H(); bb_delay();
+    X_SDA_H(); bb_delay();
+}
+
+static int xb_write(uint8_t b)
+{
+    X_SDA_OUT();
+    for (int i = 7; i >= 0; i--) {
+        if (b & (1u << i)) X_SDA_H(); else X_SDA_L();
+        bb_delay();
+        X_SCL_H(); bb_delay();
+        X_SCL_L(); bb_delay();
+    }
+    X_SDA_IN(); bb_delay();
+    X_SCL_H(); bb_delay();
+    int ack = (X_SDA_READ() == 0) ? 1 : 0;
+    X_SCL_L(); bb_delay();
+    X_SDA_OUT();
+    return ack;
+}
+
+static void xb_scan(void)
+{
+    for (uint8_t a = 0x08; a <= 0x77; a++) {
+        xb_start();
+        int ack = xb_write((uint8_t)(a << 1));
+        xb_stop();
+        if (ack) {
+            if (g_bus_count[5] < 8) g_bus[5] = (g_bus[5] << 8) | a;
+            g_bus_count[5]++;
+        }
+        bb_delay();
+    }
+}
+
+/* ============================================================
  * Hardware I2C scan
  * ============================================================ */
 static void hw_scan(I2C_TypeDef *inst, int idx,
@@ -174,6 +231,9 @@ int main(void)
     /* A. bit-bang PB6/PB7 */
     bb_init();
     bb_scan();
+
+    /* A2. bit-bang dengan SCL/SDA DITUKAR (SCL=PB7, SDA=PB6) */
+    xb_scan();
 
     /* B. I2C1 PB6/PB7 */
     hw_scan(I2C1, 1, GPIOB, GPIO_PIN_6, GPIO_PIN_7, GPIO_AF4_I2C1);

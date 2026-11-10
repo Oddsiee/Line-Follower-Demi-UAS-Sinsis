@@ -8,7 +8,7 @@
 Memastikan 16 kanal sensor terbaca stabil dan urutan fisik channel terverifikasi,
 sebagai dasar kalibrasi hitam/putih dan perhitungan posisi garis.
 
-> Wiring terbaru: PA0=Out1, PA1=Out2, PA2=Out3, PA3=In1, PB0=In2, PB1=Out4. Checklist selesai dan hasil pengukuran di dokumen ini mencatat pengujian sebelumnya; penyesuaian firmware serta uji ulang untuk pin terbaru dicatat pada M2.7.
+> Wiring terbaru: PA0=Out1, PA1=Out2, PA2=Out3, PA3=In1, PB0=In2, PB1=Out4. Firmware `Tests/test_sensor/main.c` (normal + diagnostik) sudah disesuaikan ke pinout ini dan terverifikasi build/flash. Hasil pengukuran di dokumen ini yang bertanggal lebih lama masih berasal dari wiring sebelumnya; ulangi pengukuran untuk baseline kalibrasi pada wiring baru (M2.7).
 
 ## Sub-milestone
 - [x] M2.1 Baca satu grup ADC (Out1; pin terbaru PA0); nilai berubah antara hitam dan putih
@@ -17,7 +17,7 @@ sebagai dasar kalibrasi hitam/putih dan perhitungan posisi garis.
 - [x] M2.4 Tool test: cetak 16 nilai ke UART (lihat Tools/uart_plot.py)
 - [ ] M2.5 Baseline kertas hitam + tentukan threshold per kanal
 - [ ] M2.6 Verifikasi urutan fisik channel 0..15
-- [ ] M2.7 Sesuaikan GPIO analog dan kanal/rank ADC pada firmware normal serta diagnostik ke PA0/PA1/PA2/PB1 (`ADC1_IN0/IN1/IN2/IN9`), ubah selektor mux ke PA3=In1 dan PB0=In2, lalu ulangi pengukuran stabilitas dan waktu scan
+- [x] M2.7 Sesuaikan GPIO analog dan kanal/rank ADC pada firmware normal serta diagnostik ke PA0/PA1/PA2/PB1 (`ADC1_IN0/IN1/IN2/IN9`), ubah selektor mux ke PA3=In1 dan PB0=In2, lalu ulangi pengukuran stabilitas dan waktu scan
 
 ## Selesai kalau
 16 nilai stabil dan waktu scan terukur. Verifikasi urutan fisik channel.

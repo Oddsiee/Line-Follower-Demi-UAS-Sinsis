@@ -3,6 +3,41 @@
 Tanggal: 2026-11-05
 Board: STM32F411CEU6 (Black Pill), ST-Link V2J48S7
 
+## 🔴 AKAR MASALAH TERBARU (2026-11-10): GND dan VCC OLED TERTUKAR DI PCB
+
+> **STATUS: DITUNDA.** Perbaikan PCB belum dilakukan. Diagnosis software
+> dihentikan sampai jalur VCC/GND OLED di PCB dibetulkan. Firmware OLED
+> (`sh1106.c`) sudah siap dan tidak perlu diubah lagi untuk masalah ini.
+
+**Gejala:** OLED gelap total, tidak ada device yang ACK di bus I2C mana pun.
+
+**Penyebab:** Kesalahan cetak PCB — pin **GND** dan **VCC** pada konektor OLED
+tertukar. Modul OLED tidak pernah mendapat daya yang benar, sehingga chip
+SH1106 tidak hidup dan tidak akan pernah menjawab I2C.
+
+**Bukti pengukuran yang mengarah ke sini:**
+
+| Pengukuran | Hasil | Interpretasi |
+|---|---|---|
+| Scan I2C 0x08–0x77 (bit-bang + 4 bus hardware) | **0 device** | Tidak ada chip hidup di bus |
+| Pin input tanpa pull internal | SCL=1, SDA=1 | Ada pull-up eksternal → modul **terpasang** |
+| Pin input + pull-down | SCL=1, SDA=1 | Line tetap HIGH → bukan short, tapi juga bukan modul aktif |
+| `g_sh1106_last` | `HAL_ERROR` (NACK) | Bus sehat, tidak ada yang menjawab |
+| `g_sh1106_ok` | **0** | Tidak satu pun perintah OLED berhasil |
+
+**Kesimpulan:** bus I2C sehat dan modul terpasang, tetapi chip tidak berdaya.
+Ini konsisten dengan VCC/GND tertukar — bukan bug firmware.
+
+**Tindakan:** perbaiki PCB (tukar kembali GND/VCC pada konektor OLED), lalu
+ulangi `Tests/test_oled` untuk verifikasi.
+
+> Catatan: modul OLED umumnya punya pull-up di SCL/SDA yang terhubung ke VCC
+> modul. Kalau VCC/GND tertukar, jalur pull-up bisa "membocorkan" tegangan
+> lewat pin I2C sehingga line terlihat HIGH walau modul mati — persis pola
+> yang terukur di atas.
+
+---
+
 ## ✅ STATUS AKHIR: SELESAI — OLED MENYALA
 
 **Akar masalah:** `MX_I2C1_Init()` di `main.c` tidak pernah memanggil

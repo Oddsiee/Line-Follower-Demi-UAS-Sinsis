@@ -16,7 +16,7 @@ CubeMX akan membuat `MUX_IN1_Pin`, `BTN_UP_Pin`, dst. di `main.h`.
 | PA15, PB3 | USART1 TX/RX (usulan debug) | DBG_TX, DBG_RX |
 
 Catatan:
-- Tabel ini memakai wiring terbaru. File `.ioc` dan firmware sensor/tombol di repo masih perlu disesuaikan sebelum memakai pin baru; perubahan dokumentasi tidak melakukan regenerate kode.
+- Tabel ini memakai wiring terbaru. File `.ioc` (`Tes_Oled_Sensor_Baru.ioc`) sudah diperbarui ke pinout master, dan modul `Core` (sensor/motor/buttons/debug) sudah memakai pin baru. Regenerate kode CubeMX tetap diperlukan bila ingin memakai `main.c` hasil CubeMX; `Tests/test_sensor` sudah build + flash terverifikasi.
 - ADC rank 1–4: kanal 0, 1, 2, 9. PA3 adalah output selektor mux, bukan input ADC; PB1 adalah input analog Out4. In1 dan In2 berada di dua port: GPIOA pin 3 dan GPIOB pin 0.
 - USART1 di PA15/PB3 adalah **usulan**; pin ini tidak ada di pinout master tetapi kosong di header Black Pill (pin 10 dan 11). Pakai adaptor USB-UART 3.3 V. Jika dipakai, catat di dokumentasi master.
 - TIM1: set ARR = 999 agar nilai compare = duty langsung (-1000..+1000 setelah di-map ke 0..1000).

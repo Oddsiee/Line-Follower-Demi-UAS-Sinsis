@@ -16,6 +16,10 @@ static uint8_t s_addr7 = SH1106_I2C_ADDR;
 volatile uint32_t g_sh1106_ok   = 0;
 volatile uint32_t g_sh1106_fail = 0;
 volatile uint32_t g_sh1106_last = 0;
+volatile uint32_t g_sh1106_recover = 0;
+volatile uint32_t g_sh1106_scan_count = 0;
+volatile uint32_t g_sh1106_scan_lo = 0;
+volatile uint32_t g_sh1106_scan_hi = 0;
 
 /* ============================================================
  * Font 6x8 (ASCII 32..126). 6 byte/glyph = 6 kolom, bit 0 = baris atas.
@@ -123,14 +127,46 @@ static const uint8_t FONT6x8[95][6] = {
  * I2C low-level
  * ============================================================ */
 
-/* Bus recovery: kalau SDA ditahan LOW oleh slave (mis. MCU reset di tengah
- * transaksi), clock SCL 9x supaya slave melepas SDA, lalu STOP.
- * Tanpa ini, flag BUSY di I2C1 bisa macet permanen. */
+/* ============================================================
+ * Bus recovery
+ *
+ * Masalah nyata yang terukur: flag BUSY di I2C1 bisa macet permanen
+ * (SR2.BUSY = 1) sehingga SEMUA transaksi mengembalikan HAL_BUSY.
+ * __HAL_RCC_I2C1_FORCE_RESET() saja TIDAK cukup untuk membersihkannya.
+ * Yang terbukti bekerja: bit SWRST di I2C_CR1.
+ *
+ * Urutan:
+ *   1. Lepas pin dari AF -> GPIO open-drain, clock SCL 9x (bebaskan slave
+ *      yang menahan SDA), lalu STOP.
+ *   2. SWRST pulse untuk reset state machine peripheral.
+ *   3. Kembalikan pin ke AF4, init ulang HAL.
+ *   4. Verifikasi SR2.BUSY == 0; ulangi bila perlu.
+ * ============================================================ */
+static void i2c_swrst(void)
+{
+    /* RM0090: SWRST hanya bisa di-set saat peripheral DISABLE (PE=0).
+     * Kalau PE masih 1, tulisan SWRST DIABAIKAN dan flag BUSY tetap macet.
+     * Urutan wajib: PE=0 -> SWRST=1 -> SWRST=0 -> PE=1. */
+    I2C_TypeDef *i2c = SH1106_HI2C.Instance;
+
+    i2c->CR1 &= ~I2C_CR1_PE;          /* 1. disable peripheral */
+    for (volatile int d = 0; d < 50; d++) { }
+
+    i2c->CR1 |=  I2C_CR1_SWRST;       /* 2. reset state machine */
+    for (volatile int d = 0; d < 50; d++) { }
+
+    i2c->CR1 &= ~I2C_CR1_SWRST;       /* 3. lepas reset */
+    for (volatile int d = 0; d < 50; d++) { }
+
+    i2c->CR1 |=  I2C_CR1_PE;          /* 4. enable kembali */
+    for (volatile int d = 0; d < 50; d++) { }
+}
+
 static void i2c_bus_recover(void)
 {
     GPIO_InitTypeDef g = {0};
 
-    /* lepas pin dari AF, jadikan GPIO open-drain */
+    /* --- 1. bit-bang: lepas slave yang menahan SDA --- */
     g.Pin       = GPIO_PIN_6 | GPIO_PIN_7;
     g.Mode      = GPIO_MODE_OUTPUT_OD;
     g.Pull      = GPIO_PULLUP;
@@ -152,17 +188,42 @@ static void i2c_bus_recover(void)
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_7, GPIO_PIN_SET);
     for (volatile int d = 0; d < 200; d++) { }
 
-    /* reset peripheral I2C supaya flag BUSY hilang */
-    __HAL_RCC_I2C1_FORCE_RESET();
-    __HAL_RCC_I2C1_RELEASE_RESET();
+    /* --- 2. reset peripheral (SWRST terbukti membersihkan BUSY) --- */
+    i2c_swrst();
 
-    /* kembalikan pin ke AF4 I2C1 */
+    /* --- 3. kembalikan pin ke AF4 I2C1 --- */
     g.Mode      = GPIO_MODE_AF_OD;
     g.Alternate = GPIO_AF4_I2C1;
     HAL_GPIO_Init(GPIOB, &g);
 
-    /* peripheral baru di-reset -> handle HAL harus di-init ulang */
+    /* --- 4. init ulang HAL + verifikasi BUSY hilang --- */
+    SH1106_HI2C.State = HAL_I2C_STATE_RESET;
     HAL_I2C_Init(&SH1106_HI2C);
+
+    for (int t = 0; t < 3; t++) {
+        if ((SH1106_HI2C.Instance->SR2 & I2C_SR2_BUSY) == 0U) break;
+        i2c_swrst();
+        SH1106_HI2C.State = HAL_I2C_STATE_RESET;
+        HAL_I2C_Init(&SH1106_HI2C);
+    }
+}
+
+/* Scan bus I2C 0x08..0x77. Bit i = alamat (0x08+i) untuk i<0x38,
+ * sisanya di *hi. Mengembalikan jumlah device yang ACK. */
+uint32_t SH1106_Scan(uint32_t *lo, uint32_t *hi)
+{
+    uint32_t n = 0;
+    if (lo) *lo = 0;
+    if (hi) *hi = 0;
+
+    for (uint8_t a = 0x08; a <= 0x77; a++) {
+        if (HAL_I2C_IsDeviceReady(&SH1106_HI2C, (uint16_t)(a << 1), 2, 10) == HAL_OK) {
+            if (a < 0x40) { if (lo) *lo |= (1UL << (a - 0x08)); }
+            else          { if (hi) *hi |= (1UL << (a - 0x40)); }
+            n++;
+        }
+    }
+    return n;
 }
 
 static void write_cmd(uint8_t cmd)
@@ -170,6 +231,15 @@ static void write_cmd(uint8_t cmd)
     /* control byte 0x00 = perintah */
     HAL_StatusTypeDef st = HAL_I2C_Mem_Write(&SH1106_HI2C, (uint16_t)(s_addr7 << 1), 0x00,
                                              I2C_MEMADD_SIZE_8BIT, &cmd, 1, SH1106_TIMEOUT);
+
+    /* BUSY macet = peripheral perlu di-recover, bukan sekadar retry. */
+    if (st == HAL_BUSY) {
+        g_sh1106_recover++;
+        i2c_bus_recover();
+        st = HAL_I2C_Mem_Write(&SH1106_HI2C, (uint16_t)(s_addr7 << 1), 0x00,
+                               I2C_MEMADD_SIZE_8BIT, &cmd, 1, SH1106_TIMEOUT);
+    }
+
     g_sh1106_last = (uint32_t)st;
     if (st == HAL_OK) g_sh1106_ok++; else g_sh1106_fail++;
 }

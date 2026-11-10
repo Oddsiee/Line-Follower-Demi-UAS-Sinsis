@@ -2,9 +2,9 @@
  * main.c — Test Sensor 16CH Dariyan-X (standalone, tanpa CubeIDE)
  *
  * Wiring (sesuai pinout master):
- *   PA4 = Out1 (ADC1_IN4)   PA5 = Out2 (ADC1_IN5)
- *   PA6 = Out3 (ADC1_IN6)   PA7 = Out4 (ADC1_IN7)
- *   PB0 = In1 (mux bit0)    PB1 = In2 (mux bit1)
+ *   PA0 = Out1 (ADC1_IN0)   PA1 = Out2 (ADC1_IN1)
+ *   PA2 = Out3 (ADC1_IN2)   PB1 = Out4 (ADC1_IN9)
+ *   PA3 = In1 (mux bit0)    PB0 = In2 (mux bit1)
  *   Sensor Vcc -> 3V3, Gnd -> GND
  *
  * Opsional:
@@ -89,18 +89,27 @@ static void SystemClock_Config(void)
 }
 
 /* ============================================================
- * GPIO: mux selector PB0/PB1, LED PC13
+ * GPIO: mux selector PA3 (In1) / PB0 (In2), LED PC13
  * ============================================================ */
 static void MX_GPIO_Init(void)
 {
     GPIO_InitTypeDef g = {0};
 
+    __HAL_RCC_GPIOA_CLK_ENABLE();
     __HAL_RCC_GPIOB_CLK_ENABLE();
     __HAL_RCC_GPIOC_CLK_ENABLE();
 
-    /* PB0 = MUX_IN1, PB1 = MUX_IN2 -> output push-pull */
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0 | GPIO_PIN_1, GPIO_PIN_RESET);
-    g.Pin   = GPIO_PIN_0 | GPIO_PIN_1;
+    /* PA3 = MUX_IN1 (bit0) -> output push-pull */
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_3, GPIO_PIN_RESET);
+    g.Pin   = GPIO_PIN_3;
+    g.Mode  = GPIO_MODE_OUTPUT_PP;
+    g.Pull  = GPIO_NOPULL;
+    g.Speed = GPIO_SPEED_FREQ_HIGH;
+    HAL_GPIO_Init(GPIOA, &g);
+
+    /* PB0 = MUX_IN2 (bit1) -> output push-pull */
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_RESET);
+    g.Pin   = GPIO_PIN_0;
     g.Mode  = GPIO_MODE_OUTPUT_PP;
     g.Pull  = GPIO_NOPULL;
     g.Speed = GPIO_SPEED_FREQ_HIGH;
@@ -125,13 +134,20 @@ void HAL_ADC_MspInit(ADC_HandleTypeDef *hadc)
     __HAL_RCC_ADC1_CLK_ENABLE();
     __HAL_RCC_DMA2_CLK_ENABLE();
     __HAL_RCC_GPIOA_CLK_ENABLE();
+    __HAL_RCC_GPIOB_CLK_ENABLE();
 
-    /* PA4..PA7 -> analog */
+    /* PA0/PA1/PA2 (Out1..Out3) -> analog */
     GPIO_InitTypeDef g = {0};
-    g.Pin  = GPIO_PIN_4 | GPIO_PIN_5 | GPIO_PIN_6 | GPIO_PIN_7;
+    g.Pin  = GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2;
     g.Mode = GPIO_MODE_ANALOG;
     g.Pull = GPIO_NOPULL;
     HAL_GPIO_Init(GPIOA, &g);
+
+    /* PB1 (Out4) -> analog */
+    g.Pin  = GPIO_PIN_1;
+    g.Mode = GPIO_MODE_ANALOG;
+    g.Pull = GPIO_NOPULL;
+    HAL_GPIO_Init(GPIOB, &g);
 
     hdma_adc1.Instance                 = DMA2_Stream0;
     hdma_adc1.Init.Channel             = DMA_CHANNEL_0;
@@ -186,10 +202,10 @@ static void MX_ADC1_Init(void)
     ch.SamplingTime = ADC_SAMPLETIME_480CYCLES;
     ch.Offset       = 0;
 
-    ch.Channel = ADC_CHANNEL_4; ch.Rank = 1; if (HAL_ADC_ConfigChannel(&hadc1, &ch) != HAL_OK) Error_Handler();
-    ch.Channel = ADC_CHANNEL_5; ch.Rank = 2; if (HAL_ADC_ConfigChannel(&hadc1, &ch) != HAL_OK) Error_Handler();
-    ch.Channel = ADC_CHANNEL_6; ch.Rank = 3; if (HAL_ADC_ConfigChannel(&hadc1, &ch) != HAL_OK) Error_Handler();
-    ch.Channel = ADC_CHANNEL_7; ch.Rank = 4; if (HAL_ADC_ConfigChannel(&hadc1, &ch) != HAL_OK) Error_Handler();
+    ch.Channel = ADC_CHANNEL_0; ch.Rank = 1; if (HAL_ADC_ConfigChannel(&hadc1, &ch) != HAL_OK) Error_Handler();
+    ch.Channel = ADC_CHANNEL_1; ch.Rank = 2; if (HAL_ADC_ConfigChannel(&hadc1, &ch) != HAL_OK) Error_Handler();
+    ch.Channel = ADC_CHANNEL_2; ch.Rank = 3; if (HAL_ADC_ConfigChannel(&hadc1, &ch) != HAL_OK) Error_Handler();
+    ch.Channel = ADC_CHANNEL_9; ch.Rank = 4; if (HAL_ADC_ConfigChannel(&hadc1, &ch) != HAL_OK) Error_Handler();
 }
 
 /* ============================================================
@@ -279,9 +295,9 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *h)
 
 static void mux_set(uint8_t state)
 {
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0,
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_3,
                       (state & 0x01) ? GPIO_PIN_SET : GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1,
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0,
                       (state & 0x02) ? GPIO_PIN_SET : GPIO_PIN_RESET);
 }
 
@@ -457,10 +473,10 @@ static void diag_vrefint(void)
     ADC_ChannelConfTypeDef c2 = {0};
     c2.SamplingTime = ADC_SAMPLETIME_480CYCLES;
     c2.Offset       = 0;
-    c2.Channel = ADC_CHANNEL_4; c2.Rank = 1; HAL_ADC_ConfigChannel(&hadc1, &c2);
-    c2.Channel = ADC_CHANNEL_5; c2.Rank = 2; HAL_ADC_ConfigChannel(&hadc1, &c2);
-    c2.Channel = ADC_CHANNEL_6; c2.Rank = 3; HAL_ADC_ConfigChannel(&hadc1, &c2);
-    c2.Channel = ADC_CHANNEL_7; c2.Rank = 4; HAL_ADC_ConfigChannel(&hadc1, &c2);
+    c2.Channel = ADC_CHANNEL_0; c2.Rank = 1; HAL_ADC_ConfigChannel(&hadc1, &c2);
+    c2.Channel = ADC_CHANNEL_1; c2.Rank = 2; HAL_ADC_ConfigChannel(&hadc1, &c2);
+    c2.Channel = ADC_CHANNEL_2; c2.Rank = 3; HAL_ADC_ConfigChannel(&hadc1, &c2);
+    c2.Channel = ADC_CHANNEL_9; c2.Rank = 4; HAL_ADC_ConfigChannel(&hadc1, &c2);
 }
 
 static void diag_run(void)
@@ -567,10 +583,29 @@ int main(void)
 
     for (int i = 0; i < 16; i++) { g_min[i] = 0xFFFF; g_max[i] = 0; }
 
-    /* OLED opsional: kalau tidak ada, driver tetap aman (timeout) */
-    if (SH1106_Probe(0x3C))      SH1106_SetAddress(0x3C);
-    else if (SH1106_Probe(0x3D)) SH1106_SetAddress(0x3D);
+    /* OLED opsional: kalau tidak ada, driver tetap aman (timeout).
+     *
+     * PENTING: SH1106_Init() melakukan bus recovery (SWRST) yang
+     * membersihkan flag BUSY. Probe SEBELUM recovery akan selalu gagal
+     * kalau BUSY macet, jadi urutannya: init dulu -> scan -> init ulang. */
     SH1106_Init();
+
+    uint32_t scan_lo = 0, scan_hi = 0;
+    g_sh1106_scan_count = SH1106_Scan(&scan_lo, &scan_hi);
+    g_sh1106_scan_lo = scan_lo;
+    g_sh1106_scan_hi = scan_hi;
+    if (g_sh1106_scan_count > 0) {
+        /* pakai alamat pertama yang ditemukan (biasanya 0x3C) */
+        uint8_t found = 0x3C;
+        for (uint8_t a = 0x08; a <= 0x77; a++) {
+            if (HAL_I2C_IsDeviceReady(&hi2c1, (uint16_t)(a << 1), 2, 10) == HAL_OK) {
+                found = a;
+                break;
+            }
+        }
+        SH1106_SetAddress(found);
+        SH1106_Init();
+    }
 
     uint32_t last_draw = 0;
     uint32_t last_uart = 0;
