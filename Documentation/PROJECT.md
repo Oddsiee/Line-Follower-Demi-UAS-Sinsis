@@ -31,7 +31,9 @@ Sensor_ReadRaw -> Calibration (normalisasi) -> Sensor_GetPosition
 ## Hal yang wajib diingat (dari dokumentasi master)
 - Sensor: PA0 = Out1 (`ADC1_IN0`), PA1 = Out2 (`ADC1_IN1`), PA2 = Out3 (`ADC1_IN2`), PA3 = In1 (GPIO output), PB0 = In2 (GPIO output), PB1 = Out4 (`ADC1_IN9`). Rank ADC mengikuti urutan kanal 0, 1, 2, 9; selektor mux memakai GPIOA dan GPIOB.
 - Tombol UP/DOWN/OK/BACK: PA7/PA6/PA5/PA4; HARD RESET: R (NRST).
-- OLED I2C1: PB7 = SDA, PB6 = SCL.
+- OLED I2C1: PB7 = SDA, PB6 = SCL. Kabel power OLED sudah diperbaiki dan teruji normal (2026-11-13); jangan mengasumsikan VCC/GND tertukar lagi.
+- **`I2C1` wajib `100 kHz` (`ClockSpeed = 100000`)**, bukan `400 kHz` (`PB6/SCL` mengandalkan internal pull-up STM32 ~40 kOhm, `g_i2c_pd = 0x80`). Tambahkan delay settling **`150 ms`** sebelum init OLED saat ditenagai buck converter `3.3 V`.
+- **Arsitektur tombol & UI anti-blocking:** `SH1106_Update()` di `100 kHz` memblokir `main()` ~`110 ms`, sehingga pembacaan tombol (`PA7/PA6/PA5/PA4`) wajib disampling **`1 kHz` di `SysTick_Handler`** (`12 ms` debounce, `500 ms` long-press) + antrean FIFO 8-slot, dipasangkan dengan dirty-driven OLED refresh (`400 ms` layar statis, `80 ms` layar sensor live, timestamp dicatat setelah render).
 - Driver motor D0/D1/D2/D3: PA8/PA9/PA10/PA11 (`TIM1_CH1–CH4`).
 - OLED memakai **SH1106**, bukan SSD1306 (pakai U8g2).
 - Pin `3V3` dan `VT` di header ZK-5AD **tidak disambung**.

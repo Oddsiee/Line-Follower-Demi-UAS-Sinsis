@@ -3,19 +3,30 @@
 Tanggal: 2026-11-05
 Board: STM32F411CEU6 (Black Pill), ST-Link V2J48S7
 
-## 🔴 AKAR MASALAH TERBARU (2026-11-10): GND dan VCC OLED TERTUKAR DI PCB
+## ✅ STATUS TERBARU (2026-11-13): KABEL POWER OLED SUDAH DIPERBAIKI & NORMAL
 
-> **STATUS: DITUNDA.** Perbaikan PCB belum dilakukan. Diagnosis software
-> dihentikan sampai jalur VCC/GND OLED di PCB dibetulkan. Firmware OLED
-> (`sh1106.c`) sudah siap dan tidak perlu diubah lagi untuk masalah ini.
+> **STATUS: SELESAI / NORMAL.** Kabel power OLED (`VCC`/`GND`) sudah diperbaiki
+> secara fisik oleh user dan diverifikasi menyala normal melalui `Tests/test_overall`
+> menggunakan suplai buck converter `3.3 V`. **Jangan lagi mengasumsikan VCC/GND
+> tertukar sebagai penyebab utama jika OLED bermasalah di masa depan.**
 
-**Gejala:** OLED gelap total, tidak ada device yang ACK di bus I2C mana pun.
+**Aturan wajib firmware agar OLED SH1106 stabil:**
+1. **`I2C1` WAJIB diset ke `100 kHz` (`ClockSpeed = 100000`), BUKAN `400 kHz`.**
+   Pengukuran SWD (`g_i2c_pd = 0x80`) menunjukkan `PB7/SDA` memiliki pull-up eksternal,
+   sedangkan `PB6/SCL` turun LOW saat diberi pull-down internal (bergantung pada
+   internal pull-up STM32 ~40 kOhm). Pada `400 kHz`, rising edge `PB6/SCL` terlalu
+   lambat sehingga memicu NACK dan layar SH1106 membeku (freeze pada frame GDDRAM terakhir).
+2. **Delay settling boot `150 ms` (`HAL_Delay(150)`)** sebelum `SH1106_Init()` agar
+   tegangan buck converter `MP1584EN` (`3.3 V`) dan panel OLED stabil terlebih dahulu.
 
-**Penyebab:** Kesalahan cetak PCB — pin **GND** dan **VCC** pada konektor OLED
-tertukar. Modul OLED tidak pernah mendapat daya yang benar, sehingga chip
-SH1106 tidak hidup dan tidak akan pernah menjawab I2C.
+### Arsip Riwayat (2026-11-10): Insiden Kabel VCC/GND OLED Tertukar (SUDAH SELESAI)
 
-**Bukti pengukuran yang mengarah ke sini:**
+**Gejala sebelumnya:** OLED gelap total, tidak ada device yang ACK di bus I2C mana pun.
+
+**Penyebab sebelumnya:** Sambungan fisik pin **GND** dan **VCC** ke modul OLED
+sempat tertukar sehingga chip SH1106 tidak mendapat daya yang benar.
+
+**Bukti pengukuran historis (2026-11-10):**
 
 | Pengukuran | Hasil | Interpretasi |
 |---|---|---|
@@ -25,16 +36,10 @@ SH1106 tidak hidup dan tidak akan pernah menjawab I2C.
 | `g_sh1106_last` | `HAL_ERROR` (NACK) | Bus sehat, tidak ada yang menjawab |
 | `g_sh1106_ok` | **0** | Tidak satu pun perintah OLED berhasil |
 
-**Kesimpulan:** bus I2C sehat dan modul terpasang, tetapi chip tidak berdaya.
-Ini konsisten dengan VCC/GND tertukar — bukan bug firmware.
-
-**Tindakan:** perbaiki PCB (tukar kembali GND/VCC pada konektor OLED), lalu
-ulangi `Tests/test_oled` untuk verifikasi.
-
 > Catatan: modul OLED umumnya punya pull-up di SCL/SDA yang terhubung ke VCC
-> modul. Kalau VCC/GND tertukar, jalur pull-up bisa "membocorkan" tegangan
-> lewat pin I2C sehingga line terlihat HIGH walau modul mati — persis pola
-> yang terukur di atas.
+> modul. Saat VCC/GND dulu tertukar, jalur pull-up membocorkan tegangan lewat
+> pin I2C sehingga line terlihat HIGH walau modul mati. Masalah kabel ini sudah
+> diperbaiki per 2026-11-13.
 
 ---
 

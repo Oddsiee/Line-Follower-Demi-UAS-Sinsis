@@ -29,9 +29,11 @@ Konfigurasi `.ioc` (`Firmware/LF_TED2026/Tes_Oled_Sensor_Baru.ioc`) dan firmware
 ## Status progres
 | Modul | Status | Catatan |
 |---|---|---|
-| OLED SH1106 | 🔴 tertahan PCB | VCC/GND konektor OLED tertukar di PCB — perbaiki dulu, software sudah siap |
-| Sensor 16CH | 🟡 hardware OK | baseline putih terukur, hitam belum |
-| Motor | ⬜ belum | |
+| OLED SH1106 | 🟢 hardware & I2C OK | kabel power OLED sudah diperbaiki; wajib `100 kHz` I2C1 + delay boot `150 ms` |
+| Tombol Menu (4-button) | 🟢 teruji responsif | polling `1 kHz` di `SysTick` + debounce `12 ms` + long-press `500 ms` + antrean FIFO 8-slot |
+| Sensor 16CH | 🟢 teruji via overall | pembacaan mux 16CH terverifikasi di menu grafik/tabel `test_overall` |
+| Motor ZK-5AD | 🟢 teruji via overall | 4 kanal PWM `TIM1` (kiri/kanan, maju/mundur/coast/brake) terverifikasi |
+| Uji Overall & Buck 3.3V | 🟢 lulus | seluruh subsistem berjalan mandiri dari buck converter via `Tests/test_overall` |
 
 **Data pengukuran sensor:** `Documentation/Hardware/LOG_SENSOR.md`
 
@@ -39,7 +41,7 @@ Konfigurasi `.ioc` (`Firmware/LF_TED2026/Tes_Oled_Sensor_Baru.ioc`) dan firmware
 ```
 Firmware/LF_TED2026/   Project STM32CubeIDE (.ioc, Core/Inc, Core/Src)
 Tools/                 Skrip bantu (plot UART, analisis log)
-Tests/                 Firmware uji per modul (test_oled, test_sensor, test_motor)
+Tests/                 Firmware uji per modul (test_oled, test_sensor, test_motor, test_overall)
 Documentation/         PROJECT.md, Hardware/, Milestones/
 ```
 
@@ -60,10 +62,10 @@ Satu modul, satu pemilik. Ubah modul orang lain lewat issue/chat, bukan edit lan
 
 ## Progress
 - [ ] Milestone 0 — Perencanaan & Kontrak Antarmuka (Semua, 4–6 Nov)
-- [ ] Milestone 1 — Bring-up Hardware (Semua, 4–6 Nov)
-- [ ] Milestone 2 — Sensor 16CH (A, 7–11 Nov)
-- [ ] Milestone 3 — Driver Motor (B, 7–11 Nov)
-- [ ] Milestone 4 — OLED & Tombol (C, 7–11 Nov)
+- [x] Milestone 1 — Bring-up Hardware (Semua, 4–6 Nov) — terverifikasi via `Tests/test_overall` + buck `3.3 V`
+- [x] Milestone 2 — Sensor 16CH (A, 7–11 Nov) — hardware & mux terverifikasi via `Tests/test_overall`
+- [x] Milestone 3 — Driver Motor (B, 7–11 Nov) — 4 kanal PWM `TIM1` terverifikasi via `Tests/test_overall`
+- [x] Milestone 4 — OLED & Tombol (C, 7–11 Nov) — terverifikasi via `Tests/test_overall` (siap port ke `Firmware/LF_TED2026`)
 - [ ] Milestone 5 — Kalibrasi & Posisi Garis (A, 12–16 Nov)
 - [ ] Milestone 6 — Karakterisasi Motor (B, 12–16 Nov)
 - [ ] Milestone 7 — Parameter & Penyimpanan (C, 12–16 Nov)

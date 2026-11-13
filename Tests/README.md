@@ -47,3 +47,13 @@ cd Tests\test_motor
 
 **Angkat/ganjal roda sebelum flash** — motor langsung berputar.
 Lihat `test_motor/README.md` untuk wiring, tabel fase, dan troubleshooting.
+
+## test_overall/ — SIAP PAKAI
+
+Test terpadu interaktif (Tombol + OLED + Sensor 16CH + Motor ZK-5AD + Monitor 3.3V `Vdda`) untuk pengujian mandiri pakai baterai/buck converter tanpa ST-Link:
+```powershell
+cd Tests\test_overall
+.\build.ps1
+.\flash.ps1
+```
+Lihat `test_overall/README.md` untuk panduan menu dan kontrol tombol.
