@@ -32,4 +32,18 @@ cd Tests\test_sensor
 ```
 Lihat `test_sensor/README.md` untuk tabel wiring pin sensor dan troubleshooting.
 
-Folder `test_motor/` dibuat oleh B saat Milestone 3.
+## test_motor/ — SIAP PAKAI
+
+Test driver motor ZK-5AD (TIM1 PA8–PA11 = D0–D3), standalone tanpa STM32CubeIDE.
+Menguji koneksi STM32 ↔ driver + arah putar tiap roda (fase auto: pin walk D0–D3,
+maju/kiri/kanan/mundur/rem).
+
+```powershell
+cd Tests\test_motor
+.\build.ps1
+.\flash.ps1
+.\read_motor.ps1 -Samples 5 -IntervalMs 500   # baca g_* + register TIM1 via SWD
+```
+
+**Angkat/ganjal roda sebelum flash** — motor langsung berputar.
+Lihat `test_motor/README.md` untuk wiring, tabel fase, dan troubleshooting.
