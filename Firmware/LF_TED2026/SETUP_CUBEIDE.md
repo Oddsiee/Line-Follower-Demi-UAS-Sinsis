@@ -1,6 +1,6 @@
 # Setup STM32CubeIDE
 
-Buat project baru bernama `LF_TED2026` di folder ini (board/MCU: **STM32F411CEUx**), simpan `LF_TED2026.ioc` di sini.
+Buat project baru bernama `LF_TED2026` di folder ini (board/MCU aktif: **STM32F411CCUx** — 256 KB Flash / 128 KB RAM, menggantikan rencana awal **STM32F411CEUx** 512 KB Flash yang regulatornya terbakar; untuk CubeMX bisa memakai target `STM32F411CCUx` atau `.ioc` `STM32F411CEUx` yang kompatibel pin/peripheral-nya asalkan kode + parameter tetap <= `256 KB` Flash), simpan `LF_TED2026.ioc` di sini.
 
 ## Beri User Label sama dengan NetLabel PCB
 CubeMX akan membuat `MUX_IN1_Pin`, `BTN_UP_Pin`, dst. di `main.h`.

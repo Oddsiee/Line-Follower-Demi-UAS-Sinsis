@@ -40,6 +40,11 @@ Sensor_ReadRaw -> Calibration (normalisasi) -> Sensor_GetPosition
 - Rem aktif = kedua pin driver HIGH; coast = kedua LOW.
 - Batas regulasi: 20x20x10 cm, 3 kg, baterai 12 V +-1,5 V.
 - PA11 tetap PWM motor kanan IN2; USB data tidak digunakan bersamaan dengan PWM pada pin ini. Flash/debug melalui SWD.
+- **Pergantian MCU ke `STM32F411CCU6` (2026-11-17):** Board awal `STM32F411CEU6` mengalami kerusakan regulator dan digantikan dengan board **`STM32F411CCU6`** (`256 KB` Flash, `128 KB` SRAM, `Device ID = 0x431`). Implikasi koding wajib pada model baru ini:
+  1. **Batas Flash `256 KB` (`0x08000000..0x0803FFFF`, Sektor `0..5`):** Sektor 6 dan Sektor 7 (`0x08040000..0x0807FFFF`) **tidak ada**. Penyimpanan parameter Flash (`storage.c`, M7) wajib memakai **Sektor 5 (`FLASH_SECTOR_5`, `FLASH_PARAMS_ADDR = 0x08020000UL`, 128 KB)** dan kode program utama (`Sektor 0..4`) tidak boleh melebihi `128 KB` (`0x08000000..0x0801FFFF`).
+  2. **Linker script (`.ld`):** `LENGTH = 256K` untuk `FLASH` (RAM tetap `128K` di `0x20000000`, `_estack = 0x20020000`).
+  3. **Header CMSIS & Startup:** Tetap kompatibel memakai `-DSTM32F411xE` dan `startup_stm32f411xe.s` karena peripheral map dan vector table identik antara `F411xC` dan `F411xE`.
+  4. **Jalur OLED `PB6/PB7`:** Driver `sh1106.c` memiliki auto-fallback bit-bang (`g_sh1106_swapped = 1`, `SCL=PB7`, `SDA=PB6`) jika jalur `SCL/SDA` tertukar pada instalasi board baru, dan otomatis memakai hardware `I2C1` (`100 kHz`, `PB6=SCL`, `PB7=SDA`) bila jalur sesuai standar.
 
 ## Keputusan terbuka
 - [ ] Verifikasi PA11 sebagai PWM motor dan konfigurasi USB data nonaktif (M1.3)

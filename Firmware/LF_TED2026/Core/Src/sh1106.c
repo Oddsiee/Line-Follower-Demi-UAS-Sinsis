@@ -17,6 +17,7 @@ volatile uint32_t g_sh1106_ok   = 0;
 volatile uint32_t g_sh1106_fail = 0;
 volatile uint32_t g_sh1106_last = 0;
 volatile uint32_t g_sh1106_recover = 0;
+volatile uint32_t g_sh1106_swapped = 0;
 volatile uint32_t g_sh1106_scan_count = 0;
 volatile uint32_t g_sh1106_scan_lo = 0;
 volatile uint32_t g_sh1106_scan_hi = 0;
@@ -208,6 +209,103 @@ static void i2c_bus_recover(void)
     }
 }
 
+static void i2c_restore_af_pins(void)
+{
+    GPIO_InitTypeDef g = {0};
+    __HAL_RCC_GPIOB_CLK_ENABLE();
+    g.Pin       = GPIO_PIN_6 | GPIO_PIN_7;
+    g.Mode      = GPIO_MODE_AF_OD;
+    g.Pull      = GPIO_PULLUP;
+    g.Speed     = GPIO_SPEED_FREQ_VERY_HIGH;
+    g.Alternate = GPIO_AF4_I2C1;
+    HAL_GPIO_Init(GPIOB, &g);
+}
+
+/* ============================================================
+ * Fallback bit-bang untuk kabel SCL/SDA tertukar (SCL=PB7, SDA=PB6)
+ * ============================================================ */
+#define X_SCL_H()    do { GPIOB->BSRR = GPIO_PIN_7; } while (0)
+#define X_SCL_L()    do { GPIOB->BSRR = (uint32_t)GPIO_PIN_7 << 16; } while (0)
+#define X_SDA_H()    do { GPIOB->BSRR = GPIO_PIN_6; } while (0)
+#define X_SDA_L()    do { GPIOB->BSRR = (uint32_t)GPIO_PIN_6 << 16; } while (0)
+#define X_SDA_IN()   do { GPIOB->MODER = (GPIOB->MODER & ~(3U << 12)) | (0U << 12); } while (0)
+#define X_SDA_OUT()  do { GPIOB->MODER = (GPIOB->MODER & ~(3U << 12)) | (1U << 12); } while (0)
+#define X_SDA_READ() ((GPIOB->IDR & GPIO_PIN_6) ? 1U : 0U)
+
+static void xb_delay(void)
+{
+    for (volatile int d = 0; d < 25; d++) { }
+}
+
+static void xb_init_pins(void)
+{
+    GPIO_InitTypeDef g = {0};
+    __HAL_RCC_GPIOB_CLK_ENABLE();
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6 | GPIO_PIN_7, GPIO_PIN_SET);
+    g.Pin   = GPIO_PIN_6 | GPIO_PIN_7;
+    g.Mode  = GPIO_MODE_OUTPUT_OD;
+    g.Pull  = GPIO_PULLUP;
+    g.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+    HAL_GPIO_Init(GPIOB, &g);
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6 | GPIO_PIN_7, GPIO_PIN_SET);
+    xb_delay();
+}
+
+static void xb_start(void)
+{
+    X_SDA_OUT();
+    X_SDA_H();
+    X_SCL_H();
+    xb_delay();
+    X_SDA_L();
+    xb_delay();
+    X_SCL_L();
+    xb_delay();
+}
+
+static void xb_stop(void)
+{
+    X_SDA_OUT();
+    X_SDA_L();
+    xb_delay();
+    X_SCL_H();
+    xb_delay();
+    X_SDA_H();
+    xb_delay();
+}
+
+static int xb_write(uint8_t b)
+{
+    X_SDA_OUT();
+    for (int i = 7; i >= 0; i--) {
+        if (b & (1U << i)) X_SDA_H(); else X_SDA_L();
+        xb_delay();
+        X_SCL_H();
+        xb_delay();
+        X_SCL_L();
+        xb_delay();
+    }
+    X_SDA_H();
+    X_SDA_IN();
+    xb_delay();
+    X_SCL_H();
+    xb_delay();
+    int ack = (X_SDA_READ() == 0U) ? 1 : 0;
+    X_SCL_L();
+    xb_delay();
+    X_SDA_OUT();
+    return ack;
+}
+
+static bool xb_probe(uint8_t addr7)
+{
+    xb_init_pins();
+    xb_start();
+    int ack = xb_write((uint8_t)(addr7 << 1));
+    xb_stop();
+    return ack != 0;
+}
+
 /* Scan bus I2C 0x08..0x77. Bit i = alamat (0x08+i) untuk i<0x38,
  * sisanya di *hi. Mengembalikan jumlah device yang ACK. */
 uint32_t SH1106_Scan(uint32_t *lo, uint32_t *hi)
@@ -228,6 +326,15 @@ uint32_t SH1106_Scan(uint32_t *lo, uint32_t *hi)
 
 static void write_cmd(uint8_t cmd)
 {
+    if (g_sh1106_swapped == 1U) {
+        xb_start();
+        int ack = xb_write((uint8_t)(s_addr7 << 1)) && xb_write(0x00) && xb_write(cmd);
+        xb_stop();
+        g_sh1106_last = ack ? 0U : 1U;
+        if (ack) g_sh1106_ok++; else g_sh1106_fail++;
+        return;
+    }
+
     /* control byte 0x00 = perintah */
     HAL_StatusTypeDef st = HAL_I2C_Mem_Write(&SH1106_HI2C, (uint16_t)(s_addr7 << 1), 0x00,
                                              I2C_MEMADD_SIZE_8BIT, &cmd, 1, SH1106_TIMEOUT);
@@ -246,6 +353,17 @@ static void write_cmd(uint8_t cmd)
 
 static void write_data(const uint8_t *data, uint16_t len)
 {
+    if (g_sh1106_swapped == 1U) {
+        xb_start();
+        if (xb_write((uint8_t)(s_addr7 << 1)) && xb_write(0x40)) {
+            for (uint16_t i = 0; i < len; i++) {
+                if (!xb_write(data[i])) break;
+            }
+        }
+        xb_stop();
+        return;
+    }
+
     /* control byte 0x40 = data */
     HAL_I2C_Mem_Write(&SH1106_HI2C, (uint16_t)(s_addr7 << 1), 0x40,
                       I2C_MEMADD_SIZE_8BIT, (uint8_t *)data, len, SH1106_TIMEOUT);
@@ -256,9 +374,20 @@ static void write_data(const uint8_t *data, uint16_t len)
  * ============================================================ */
 void SH1106_Init(void)
 {
-    /* Kalau MCU reset di tengah transaksi I2C, slave bisa menahan SDA LOW
-     * dan flag BUSY jadi macet. Recover dulu sebelum init. */
-    i2c_bus_recover();
+    if (g_sh1106_swapped == 0U) {
+        /* Kalau MCU reset di tengah transaksi I2C, slave bisa menahan SDA LOW
+         * dan flag BUSY jadi macet. Recover dulu sebelum init. */
+        i2c_bus_recover();
+        if (HAL_I2C_IsDeviceReady(&SH1106_HI2C, (uint16_t)(s_addr7 << 1), 2, 10) != HAL_OK
+            && xb_probe(s_addr7)) {
+            g_sh1106_swapped = 1U;
+        }
+    }
+    if (g_sh1106_swapped == 1U) {
+        xb_init_pins();
+    } else {
+        i2c_restore_af_pins();
+    }
 
     /* Jika gambar terbalik/mirror, tukar 0xA1<->0xA0 dan 0xC8<->0xC0. */
     static const uint8_t init[] = {
@@ -306,8 +435,17 @@ void SH1106_Update(void)
 
 bool SH1106_Probe(uint8_t addr7)
 {
-    return HAL_I2C_IsDeviceReady(&SH1106_HI2C, (uint16_t)(addr7 << 1), 2, 10)
-           == HAL_OK;
+    i2c_restore_af_pins();
+    if (HAL_I2C_IsDeviceReady(&SH1106_HI2C, (uint16_t)(addr7 << 1), 2, 10) == HAL_OK) {
+        g_sh1106_swapped = 0U;
+        return true;
+    }
+    if (xb_probe(addr7)) {
+        g_sh1106_swapped = 1U;
+        return true;
+    }
+    i2c_restore_af_pins();
+    return false;
 }
 
 void SH1106_SetAddress(uint8_t addr7)

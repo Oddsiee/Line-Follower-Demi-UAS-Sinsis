@@ -36,3 +36,4 @@ Menu bisa dinavigasi dengan 4 tombol tanpa glitch (tercapai di `Tests/test_overa
 
 ## Catatan untuk milestone berikutnya
 - Saat mengimplementasikan `Core/Src/buttons.c`, `Core/Src/ui.c`, dan `Core/Src/app.c` di `Firmware/LF_TED2026`, gunakan resep yang sama: `I2C1 = 100 kHz`, `HAL_Delay(150)` sebelum init OLED, polling tombol `1 kHz` di `SysTick_Handler` + debounce `12 ms` + long-press `500 ms` + FIFO event queue, serta dirty-driven OLED refresh (`400 ms` idle / `80 ms` live update).
+- **Migrasi ke `STM32F411CCU6` (2026-11-17):** Board baru memakai `STM32F411CCU6` (`256 KB` Flash). Pada instalasi board baru ini terdeteksi jalur `SCL` (`PB7`) dan `SDA` (`PB6`) tertukar, sehingga `Firmware/LF_TED2026/Core/Src/sh1106.c` kini memiliki auto-fallback bit-bang (`g_sh1106_swapped = 1`) sementara hardware `I2C1` tetap menjadi prioritas utama bila wiring normal (`PB6=SCL`, `PB7=SDA`).

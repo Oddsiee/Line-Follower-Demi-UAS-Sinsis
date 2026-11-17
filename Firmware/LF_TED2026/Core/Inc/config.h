@@ -93,8 +93,12 @@
 #define DEFAULT_BASE_SPEED  400
 #define DEFAULT_MAX_SPEED   800
 
-/* ---- Penyimpanan Flash (STM32F411, sektor 7 = 128 KB terakhir) ---- */
-#define FLASH_PARAMS_ADDR   0x08060000UL
+/* ---- Penyimpanan Flash (STM32F411CCU6: 256 KB, sektor terakhir = Sektor 5 = 128 KB) ---- */
+/* Catatan: pada varian awal STM32F411CEU6 (512 KB), sektor terakhir adalah Sektor 7 (0x08060000UL).
+ * Di STM32F411CCU6 (256 KB, 0x08000000..0x0803FFFF), sektor 6 dan 7 TIDAK ADA;
+ * sektor 5 menempati 0x08020000UL..0x0803FFFFUL (128 KB). Kode program harus <= 128 KB (sektor 0..4). */
+#define FLASH_PARAMS_SECTOR FLASH_SECTOR_5
+#define FLASH_PARAMS_ADDR   0x08020000UL
 #define PARAMS_MAGIC        0x4C465432UL   /* "LFT2" */
 
 /* ---- Batas regulasi TED 2026 (untuk dokumentasi/cek) ---- */

@@ -1,7 +1,13 @@
 # Diagnosa OLED Gelap — Hasil Pengukuran Hardware
 
-Tanggal: 2026-11-05
-Board: STM32F411CEU6 (Black Pill), ST-Link V2J48S7
+Tanggal: 2026-11-05 (diperbarui 2026-11-17)
+Board: STM32F411CCU6 (256 KB Flash, pengganti STM32F411CEU6 yang regulatornya terbakar), ST-Link V2J48S7
+
+## ✅ UPDATE MIGRASI BOARD BARU (`STM32F411CCU6`, 2026-11-17)
+
+- **Pergantian MCU:** Board `STM32F411CEU6` (512 KB Flash) awal mengalami kerusakan regulator, digantikan dengan **`STM32F411CCU6`** (`256 KB` Flash, `128 KB` RAM, `Device ID = 0x431`).
+- **Temuan jalur OLED di board baru:** Hasil `multibus.elf` menunjukkan OLED merespons `0x3C` pada bus **`F` (`SCL=PB7, SDA=PB6`)**, yaitu `SCL` dan `SDA` tertukar terhadap `PB6/PB7`.
+- **Solusi firmware:** `Firmware/LF_TED2026/Core/Src/sh1106.c` kini dilengkapi auto-fallback bit-bang open-drain untuk `SCL=PB7, SDA=PB6` (`g_sh1106_swapped = 1`, terverifikasi `g_sh1106_ok > 0`, `g_sh1106_fail = 0`) dan tetap otomatis memakai hardware `I2C1` bila kabel normal (`PB6=SCL, PB7=SDA`).
 
 ## ✅ STATUS TERBARU (2026-11-13): KABEL POWER OLED SUDAH DIPERBAIKI & NORMAL
 

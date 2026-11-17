@@ -21,7 +21,7 @@
 
 | Kategori | Nama Komponen | Spesifikasi Teknis & Catatan Implementasi |
 | :--- | :--- | :--- |
-| **Mikrokontroler (MCU)** | **STM32F411CEU6 "Black Pill V3"** | ARM Cortex-M4 $100\text{ MHz}$, $512\text{ KB}$ Flash, $128\text{ KB}$ RAM, Port USB Type-C. Dipasang menggunakan 2 baris *Female Header* $1\times20$ pin. |
+| **Mikrokontroler (MCU)** | **STM32F411CCU6 "Black Pill" *(aktif per 2026-11-17)*** | ARM Cortex-M4 $100\text{ MHz}$, **$256\text{ KB}$ Flash (Sektor `0..5`)**, $128\text{ KB}$ RAM, `Device ID = 0x431`, Port USB Type-C. Menggantikan **STM32F411CEU6** ($512\text{ KB}$ Flash) pada rencana awal yang regulatornya terbakar. Dipasang menggunakan 2 baris *Female Header* $1\times20$ pin. |
 | **Sensor Garis** | **Dariyan-X 16CH Line Sensor** | Sensor 16 *channel* fotodioda/IR dengan sistem *Dual 4-Channel Multiplexer* terintegrasi. Menggunakan konektor $1\times8$ pin. |
 | **Driver Motor** | **ZK-5AD Dual DC Motor Driver** | Dual H-Bridge MOSFET $5\text{ A}$ kontinu (tegangan kerja $3.0\text{ V} - 14\text{ V}$). Memiliki 7 pin kontrol logika dan 6 terminal baut. |
 | **Aktuator (Motor)** | **Gearbox V.2 Dariyan-X2 (ZRF)** | Sepasang motor DC *high-speed* dengan *gearbox* presisi dan roda *sponge/foam* khusus kompetisi *line follower*. |

@@ -38,14 +38,14 @@ static void SystemClock_Config(void)
     if (HAL_RCC_ClockConfig(&clk, FLASH_LATENCY_0) != HAL_OK) { Error_Handler(); }
 }
 
-/* ---------- I2C1: PB6/PB7, 400 kHz ---------- */
+/* ---------- I2C1: PB6/PB7, 100 kHz (stabil dengan pull-up internal PB6) ---------- */
 static void MX_I2C1_Init(void)
 {
     /* WAJIB: tanpa ini register I2C1 tidak bisa diakses sama sekali */
     __HAL_RCC_I2C1_CLK_ENABLE();
 
     hi2c1.Instance             = I2C1;
-    hi2c1.Init.ClockSpeed      = 400000;
+    hi2c1.Init.ClockSpeed      = 100000;
     hi2c1.Init.DutyCycle       = I2C_DUTYCYCLE_2;
     hi2c1.Init.OwnAddress1     = 0;
     hi2c1.Init.AddressingMode  = I2C_ADDRESSINGMODE_7BIT;
@@ -93,6 +93,7 @@ int main(void)
     MX_GPIO_Init();
     MX_I2C1_Init();
 
+    HAL_Delay(150);
     TestOled_Init();
 
     for (;;)

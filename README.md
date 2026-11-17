@@ -2,12 +2,12 @@
 
 Robot line follower tim S1 Teknik Elektro Universitas Diponegoro untuk **Tech Enthusiast Day 2026**, Sekolah Vokasi UGM. Lomba: **28 November 2026**.
 
-Firmware ditulis di **STM32CubeIDE** untuk STM32F411CEU6 (Black Pill).
+Firmware ditulis di **STM32CubeIDE** untuk **STM32F411CCU6** (Black Pill, 256 KB Flash / 128 KB RAM — menggantikan STM32F411CEU6 awal yang regulatornya terbakar).
 
 ## Hardware ringkas
 | Bagian | Komponen |
 |---|---|
-| MCU | STM32F411CEU6 "Black Pill V3" |
+| MCU | STM32F411CCU6 "Black Pill" (256 KB Flash, 128 KB RAM — pengganti STM32F411CEU6 awal yang regulatornya terbakar) |
 | Sensor | Dariyan-X 16CH (dual 4-ch mux, 4 output analog) |
 | Driver | ZK-5AD dual H-bridge |
 | Layar | OLED 1.3" I2C, chip **SH1106** |
