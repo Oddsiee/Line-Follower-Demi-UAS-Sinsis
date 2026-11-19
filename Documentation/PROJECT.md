@@ -1,5 +1,10 @@
 # PROJECT — Kontrak Antarmuka & Aturan Tim
 
+## Lokasi Coding Utama (Aturan Mutlak)
+- **Codingan utama HANYA ditulis pada folder `Line Follower Coding Utama/`** (tempat file `.ioc` utama `Line Follower Coding Utama/Line Follower Coding Utama.ioc` berada, target MCU **`STM32F401CCU6`**).
+- **TIDAK ADA coding untuk robot Line Follower di luar folder `Line Follower Coding Utama/`**.
+- Folder `Firmware/LF_TED2026/` hanya merupakan arsip/stub awal dan tidak digunakan untuk penulisan coding utama.
+
 ## Kontrak antarmuka (jangan diubah sepihak)
 | Modul | Fungsi | Keterangan |
 |---|---|---|
@@ -29,6 +34,7 @@ Sensor_ReadRaw -> Calibration (normalisasi) -> Sensor_GetPosition
 | Bersama | config.h, .ioc, README.md |
 
 ## Hal yang wajib diingat (dari dokumentasi master)
+- **Lokasi Coding Utama (MUTLAK):** Codingan utama robot Line Follower **HANYA** ditulis pada folder **`Line Follower Coding Utama/`** (lokasi `Line Follower Coding Utama.ioc`, MCU `STM32F401CCU6`). **TIDAK ADA** coding untuk robot Line Follower di luar folder **`Line Follower Coding Utama/`**.
 - Sensor: PA0 = Out1 (`ADC1_IN0`), PA1 = Out2 (`ADC1_IN1`), PA2 = Out3 (`ADC1_IN2`), PA3 = In1 (GPIO output), PB0 = In2 (GPIO output), PB1 = Out4 (`ADC1_IN9`). Rank ADC mengikuti urutan kanal 0, 1, 2, 9; selektor mux memakai GPIOA dan GPIOB.
 - Tombol UP/DOWN/OK/BACK: PA7/PA6/PA5/PA4; HARD RESET: R (NRST).
 - OLED I2C1: PB7 = SDA, PB6 = SCL. Kabel power OLED sudah diperbaiki dan teruji normal (2026-11-13); jangan mengasumsikan VCC/GND tertukar lagi.

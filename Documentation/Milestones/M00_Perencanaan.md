@@ -1,5 +1,7 @@
 # Milestone 0 — Perencanaan & Kontrak Antarmuka
 
+> **ATURAN MUTLAK LOKASI CODING UTAMA:** Seluruh codingan utama robot Line Follower **HANYA** ditulis pada folder **`Line Follower Coding Utama/`** (tempat `.ioc` utama `Line Follower Coding Utama/Line Follower Coding Utama.ioc` berada, MCU **`STM32F401CCU6`**) dan **TIDAK ADA coding untuk robot Line Follower di luar folder ini**.
+
 - **Pemilik:** Semua
 - **Jadwal:** 4–6 Nov
 - **Status:** berjalan — kontrak dan aturan kerja ditetapkan; verifikasi clone-build per anggota menunggu bukti
@@ -56,14 +58,14 @@ Sinkronisasi dilakukan setiap 2–3 hari, dimulai pada 6 Nov dan berlanjut pada 
 ## Selesai kalau
 
 - Nama anggota A, B, dan C tercantum pada tabel kepemilikan.
-- Semua anggota bisa clone repository dan build baseline `Firmware/LF_TED2026` di STM32CubeIDE tanpa error.
+- Semua anggota bisa clone repository dan build baseline `Line Follower Coding Utama/` di STM32CubeIDE tanpa error.
 - Firmware baseline dapat di-flash melalui ST-Link dan UART mengeluarkan teks uji pada M01.
 - Kontrak API di atas disetujui tim dan tidak ada perubahan antarmuka terbuka tanpa catatan.
 
 ## Langkah yang dikerjakan
 
 1. Gunakan `Documentation/PROJECT.md` sebagai ringkasan kontrak lintas-modul dan header firmware sebagai definisi API.
-2. Pastikan target MCU adalah STM32F411CEU6 dan project dibuat/dibuka dari `Firmware/LF_TED2026`.
+2. Pastikan target MCU sesuai `.ioc` utama (`STM32F401CCU6`) dan project dibuat/dibuka dari **`Line Follower Coding Utama/`** (`Line Follower Coding Utama/Line Follower Coding Utama.ioc`). Semua coding utama hanya ditulis di folder tersebut.
 3. Sebelum mengerjakan modul, buat branch sesuai kepemilikan lalu konfirmasi baseline project dapat dibuild.
 4. Simpan konfigurasi pin, library, dan perubahan CubeMX di M01 sesuai wiring master terbaru (motor tetap PA8–PA11). Frekuensi PWM dan periode loop ditetapkan setelah pengujian milestone pemiliknya.
 5. Catat hasil clone-build setiap anggota di tabel hasil uji berikut.

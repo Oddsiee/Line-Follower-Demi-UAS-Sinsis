@@ -1,5 +1,7 @@
 # Log Pengukuran Sensor 16CH Dariyan-X
 
+> **ATURAN MUTLAK LOKASI CODING UTAMA:** Codingan utama robot Line Follower **HANYA** ditulis pada folder **`Line Follower Coding Utama/`** (lokasi `.ioc` utama `Line Follower Coding Utama/Line Follower Coding Utama.ioc`, MCU `STM32F401CCU6`). **TIDAK ADA** coding untuk robot Line Follower di luar folder **`Line Follower Coding Utama/`**.
+
 Catatan hasil pengukuran nyata dari hardware. Dipakai sebagai acuan
 kalibrasi dan debugging ke depan.
 
@@ -131,4 +133,4 @@ DEV_CONNECT_ERR.
 - [ ] Konfirmasi apakah output modul inverted
 - [ ] Tentukan threshold hitam/putih per kanal
 - [ ] Verifikasi urutan fisik channel 0..15 (geser sensor di atas garis)
-- [ ] Implementasi `Sensor_ReadRaw()` di `Firmware/LF_TED2026/Core/Src/sensor.c`
+- [ ] Implementasi `Sensor_ReadRaw()` di `Line Follower Coding Utama/Core/Src/` (dan header terkait di `Line Follower Coding Utama/Core/Inc/`; tidak ada coding utama di luar folder `Line Follower Coding Utama/`)

@@ -1,5 +1,7 @@
 # Milestone 6 — Karakterisasi Motor
 
+> **ATURAN MUTLAK LOKASI CODING UTAMA:** Seluruh codingan utama robot Line Follower **HANYA** ditulis pada folder **`Line Follower Coding Utama/`** (tempat `.ioc` utama `Line Follower Coding Utama/Line Follower Coding Utama.ioc` berada, MCU **`STM32F401CCU6`**) dan **TIDAK ADA coding untuk robot Line Follower di luar folder ini**.
+
 - **Pemilik:** B
 - **Jadwal:** 12–16 Nov
 - **Status:** belum mulai

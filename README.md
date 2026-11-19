@@ -1,8 +1,13 @@
 # Line Follower — TED 2026 (SV UGM)
 
+> **ATURAN MUTLAK LOKASI CODING UTAMA:**
+> - **Seluruh codingan utama robot Line Follower HANYA ditulis pada folder [`Line Follower Coding Utama/`](Line%20Follower%20Coding%20Utama/)** karena file `.ioc` utama ([`Line Follower Coding Utama.ioc`](Line%20Follower%20Coding%20Utama/Line%20Follower%20Coding%20Utama.ioc), target MCU **`STM32F401CCU6`**) berada di folder tersebut.
+> - **TIDAK ADA coding untuk robot Line Follower di luar folder `Line Follower Coding Utama/`**.
+> - Folder `Firmware/LF_TED2026/` hanya merupakan arsip/stub awal dan tidak lagi digunakan untuk penulisan kode utama.
+
 Robot line follower tim S1 Teknik Elektro Universitas Diponegoro untuk **Tech Enthusiast Day 2026**, Sekolah Vokasi UGM. Lomba: **28 November 2026**.
 
-Firmware ditulis di **STM32CubeIDE** untuk **STM32F411CCU6** (Black Pill, 256 KB Flash / 128 KB RAM — menggantikan STM32F411CEU6 awal yang regulatornya terbakar).
+Project utama ditulis di **STM32CubeIDE** pada folder **`Line Follower Coding Utama/`** menggunakan **`.ioc` target `STM32F401CCU6`** (sesuai mikrokontroler yang digunakan; sebelumnya sempat direncanakan `STM32F411CEU6` / `STM32F411CCU6` pada arsip `Firmware/LF_TED2026/`).
 
 ## Hardware ringkas
 | Bagian | Komponen |
@@ -11,7 +16,7 @@ Firmware ditulis di **STM32CubeIDE** untuk **STM32F411CCU6** (Black Pill, 256 KB
 | Sensor | Dariyan-X 16CH (dual 4-ch mux, 4 output analog) |
 | Driver | ZK-5AD dual H-bridge |
 | Layar | OLED 1.3" I2C, chip **SH1106** |
-| Daya | LiPo 3S 11.1 V, buck MP1584EN 3.3 V |
+| Daya | LiPo 3S 11.1 V, buck MP1584EN 5.1 V (ke pin 5V STM32 & Vcc 5V Sensor) |
 
 Detail lengkap, pinout, dan aturan PCB: [dokumentasi master](dokumentasi_master_robot_line_follower_ted_2026.md).
 
@@ -24,7 +29,7 @@ Detail lengkap, pinout, dan aturan PCB: [dokumentasi master](dokumentasi_master_
 | OLED | PB7 = SDA, PB6 = SCL (I2C1) |
 | Driver motor | PA8 = D0, PA9 = D1, PA10 = D2, PA11 = D3 (TIM1_CH1–CH4) |
 
-Konfigurasi `.ioc` (`Firmware/LF_TED2026/Tes_Oled_Sensor_Baru.ioc`) dan firmware sensor/tombol sudah disesuaikan dengan pin baru. `Tests/test_sensor` terverifikasi build + flash (scan berjalan, `adc_err` = 0).
+Konfigurasi `.ioc` utama kini berada di **`Line Follower Coding Utama/Line Follower Coding Utama.ioc`** (target **`STM32F401CCU6`**) dengan pemetaan pin yang sama. Seluruh codingan utama hanya ditulis di folder **`Line Follower Coding Utama/`**. `Tests/test_sensor` terverifikasi build + flash (scan berjalan, `adc_err` = 0).
 
 ## Status progres
 | Modul | Status | Catatan |
@@ -39,10 +44,11 @@ Konfigurasi `.ioc` (`Firmware/LF_TED2026/Tes_Oled_Sensor_Baru.ioc`) dan firmware
 
 ## Struktur proyek
 ```
-Firmware/LF_TED2026/   Project STM32CubeIDE (.ioc, Core/Inc, Core/Src)
-Tools/                 Skrip bantu (plot UART, analisis log)
-Tests/                 Firmware uji per modul (test_oled, test_sensor, test_motor, test_overall)
-Documentation/         PROJECT.md, Hardware/, Milestones/
+Line Follower Coding Utama/  Project STM32CubeIDE UTAMA (.ioc STM32F401CCU6, Core/Inc, Core/Src) — SATU-SATUNYA folder coding utama
+Firmware/LF_TED2026/         [ARSIP/STUB LAMA] Tidak dipakai lagi untuk coding utama; referensi modul awal & SETUP_CUBEIDE.md
+Tools/                       Skrip bantu (plot UART, analisis log)
+Tests/                       Firmware uji per modul (test_oled, test_sensor, test_motor, test_overall) — bukan kode utama robot
+Documentation/               PROJECT.md, Hardware/, Milestones/
 ```
 
 ## Tim & kepemilikan modul
@@ -65,7 +71,7 @@ Satu modul, satu pemilik. Ubah modul orang lain lewat issue/chat, bukan edit lan
 - [x] Milestone 1 — Bring-up Hardware (Semua, 4–6 Nov) — terverifikasi via `Tests/test_overall` + buck `3.3 V`
 - [x] Milestone 2 — Sensor 16CH (A, 7–11 Nov) — hardware & mux terverifikasi via `Tests/test_overall`
 - [x] Milestone 3 — Driver Motor (B, 7–11 Nov) — 4 kanal PWM `TIM1` terverifikasi via `Tests/test_overall`
-- [x] Milestone 4 — OLED & Tombol (C, 7–11 Nov) — terverifikasi via `Tests/test_overall` (siap port ke `Firmware/LF_TED2026`)
+- [x] Milestone 4 — OLED & Tombol (C, 7–11 Nov) — terverifikasi via `Tests/test_overall` (siap port ke `Line Follower Coding Utama/`)
 - [ ] Milestone 5 — Kalibrasi & Posisi Garis (A, 12–16 Nov)
 - [ ] Milestone 6 — Karakterisasi Motor (B, 12–16 Nov)
 - [ ] Milestone 7 — Parameter & Penyimpanan (C, 12–16 Nov)
@@ -82,6 +88,6 @@ Satu modul, satu pemilik. Ubah modul orang lain lewat issue/chat, bukan edit lan
 - **27 Nov:** freeze firmware
 
 ## Build & flash
-1. Buat project STM32CubeIDE sesuai `Firmware/LF_TED2026/SETUP_CUBEIDE.md`
-2. Salin `Core/Inc` dan `Core/Src` dari repo ke project, lalu panggil `App_Init()` / `App_Update()` dari `main.c`
-3. Flash via ST-Link (SWD)
+1. Buka project STM32CubeIDE utama di folder **`Line Follower Coding Utama/`** (`Line Follower Coding Utama/Line Follower Coding Utama.ioc`, target **`STM32F401CCU6`**) — acuan setting pin bisa merujuk ke `Firmware/LF_TED2026/SETUP_CUBEIDE.md`
+2. Tulis seluruh kode utama robot Line Follower **HANYA** di dalam `Line Follower Coding Utama/Core/Inc/` dan `Line Follower Coding Utama/Core/Src/` (TIDAK ADA coding untuk robot Line Follower di luar folder `Line Follower Coding Utama/`), lalu panggil `App_Init()` / `App_Update()` dari `Line Follower Coding Utama/Core/Src/main.c`
+3. Build dan flash via ST-Link (SWD) dari project `Line Follower Coding Utama/`

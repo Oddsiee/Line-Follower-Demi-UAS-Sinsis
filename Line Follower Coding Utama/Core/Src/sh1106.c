@@ -1,0 +1,859 @@
+#include "sh1106.h"
+#include "stm32f4xx_hal.h"
+#include <stddef.h>
+
+/* Handle I2C1 dari CubeMX (didefinisikan di main.c). */
+extern I2C_HandleTypeDef SH1106_HI2C;
+
+#define SH1106_TIMEOUT 100U
+
+/* Framebuffer: 8 halaman x 128 kolom.
+ * 1 byte = 8 piksel vertikal, bit 0 = piksel paling atas dalam halaman. */
+static uint8_t s_fb[8][SH1106_WIDTH];
+static uint8_t s_addr7 = SH1106_I2C_ADDR;
+
+/* Statistik & diagnostik */
+volatile uint32_t g_sh1106_ok         = 0;
+volatile uint32_t g_sh1106_fail       = 0;
+volatile uint32_t g_sh1106_last       = 0;
+volatile uint32_t g_sh1106_recover    = 0;
+volatile uint32_t g_sh1106_swapped    = 0;
+volatile uint16_t g_sh1106_scl_pin    = GPIO_PIN_7;
+volatile uint16_t g_sh1106_sda_pin    = GPIO_PIN_6;
+volatile uint32_t g_sh1106_scan_count = 0;
+volatile uint32_t g_sh1106_scan_lo    = 0;
+volatile uint32_t g_sh1106_scan_hi    = 0;
+volatile uint32_t g_i2c_pd            = 0;
+volatile uint32_t g_i2c_pu            = 0;
+volatile uint32_t g_i2c_fl            = 0;
+volatile uint8_t  g_probe_hw_3c       = 0;
+volatile uint8_t  g_probe_bb_67       = 0;
+volatile uint8_t  g_probe_bb_76       = 0;
+volatile uint8_t  g_bb67_step         = 0;
+volatile uint8_t  g_bb76_step         = 0;
+volatile uint8_t  g_bb67_found        = 0;
+volatile uint8_t  g_bb76_found        = 0;
+
+/* ============================================================
+ * Font 6x8 (ASCII 32..126). 6 byte/glyph = 6 kolom, bit 0 = baris atas.
+ * ============================================================ */
+static const uint8_t FONT6x8[95][6] = {
+    {0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, /*  32 ' ' */
+    {0x00, 0x00, 0x9F, 0x00, 0x00, 0x00}, /*  33 '!' */
+    {0x3C, 0x3C, 0x00, 0x00, 0x3C, 0x3C}, /*  34 '"' */
+    {0x10, 0x7E, 0x17, 0x74, 0x1F, 0x00}, /*  35 '#' */
+    {0x00, 0x44, 0xCA, 0x5B, 0x30, 0x00}, /*  36 '$' */
+    {0x42, 0x25, 0x13, 0x64, 0x52, 0x21}, /*  37 '%' */
+    {0x30, 0x4F, 0x4D, 0x77, 0x70, 0x00}, /*  38 '&' */
+    {0x00, 0xFF, 0xFF, 0xFF, 0x03, 0x00}, /*  39 ''' */
+    {0x00, 0x00, 0x3C, 0x81, 0x00, 0x00}, /*  40 '(' */
+    {0x00, 0x00, 0x81, 0x3C, 0x00, 0x00}, /*  41 ')' */
+    {0x24, 0x18, 0x7E, 0x18, 0x18, 0x24}, /*  42 '*' */
+    {0x10, 0x18, 0x7E, 0x7E, 0x18, 0x10}, /*  43 '+' */
+    {0x40, 0x60, 0x62, 0x3F, 0x1F, 0x0E}, /*  44 ',' */
+    {0x08, 0x08, 0x08, 0x08, 0x08, 0x08}, /*  45 '-' */
+    {0x38, 0x7C, 0x7E, 0x7E, 0x3C, 0x18}, /*  46 '.' */
+    {0x00, 0x80, 0x30, 0x0C, 0x01, 0x00}, /*  47 '/' */
+    {0x7E, 0xF3, 0x99, 0xCF, 0x7E, 0x00}, /*  48 '0' */
+    {0x82, 0x83, 0xFF, 0x80, 0x80, 0x00}, /*  49 '1' */
+    {0x80, 0xC1, 0xB1, 0x9F, 0x84, 0x00}, /*  50 '2' */
+    {0x00, 0x81, 0x89, 0x99, 0x76, 0x00}, /*  51 '3' */
+    {0x10, 0x1C, 0x26, 0x33, 0x7F, 0x00}, /*  52 '4' */
+    {0x00, 0x8F, 0x89, 0xC9, 0x71, 0x00}, /*  53 '5' */
+    {0x7C, 0xCA, 0x89, 0x89, 0x70, 0x00}, /*  54 '6' */
+    {0x01, 0xC1, 0x71, 0x0D, 0x03, 0x00}, /*  55 '7' */
+    {0x66, 0x9D, 0x89, 0x99, 0x66, 0x00}, /*  56 '8' */
+    {0x0E, 0x91, 0x91, 0x53, 0x3E, 0x00}, /*  57 '9' */
+    {0x00, 0x00, 0xC3, 0xC3, 0x00, 0x00}, /*  58 ':' */
+    {0x00, 0x00, 0x80, 0x73, 0x00, 0x00}, /*  59 ';' */
+    {0x18, 0x18, 0x24, 0x42, 0x81, 0x00}, /*  60 '<' */
+    {0x14, 0x14, 0x14, 0x14, 0x14, 0x14}, /*  61 '=' */
+    {0x81, 0x42, 0x24, 0x18, 0x18, 0x00}, /*  62 '>' */
+    {0x00, 0x91, 0x99, 0x0E, 0x00, 0x00}, /*  63 '?' */
+    {0x00, 0x78, 0xA1, 0x25, 0x1E, 0x00}, /*  64 '@' */
+    {0x60, 0x3C, 0x33, 0x33, 0x3C, 0x60}, /*  65 'A' */
+    {0xFF, 0x99, 0x89, 0xDB, 0x76, 0x00}, /*  66 'B' */
+    {0x3C, 0xC2, 0x81, 0x81, 0x81, 0x00}, /*  67 'C' */
+    {0xFF, 0x81, 0x81, 0xC3, 0x3E, 0x00}, /*  68 'D' */
+    {0x00, 0xFF, 0x89, 0x89, 0x89, 0x00}, /*  69 'E' */
+    {0x00, 0xFF, 0x19, 0x19, 0x01, 0x00}, /*  70 'F' */
+    {0x7C, 0xC3, 0x81, 0x99, 0xF1, 0x00}, /*  71 'G' */
+    {0xFF, 0x08, 0x08, 0x08, 0xFF, 0x00}, /*  72 'H' */
+    {0x00, 0x81, 0xC3, 0xFF, 0x81, 0x00}, /*  73 'I' */
+    {0x00, 0x81, 0x81, 0x81, 0x7F, 0x00}, /*  74 'J' */
+    {0xFF, 0x18, 0x34, 0xC3, 0x81, 0x00}, /*  75 'K' */
+    {0x00, 0xFF, 0x80, 0x80, 0x80, 0x00}, /*  76 'L' */
+    {0x7F, 0x07, 0x0C, 0x0C, 0x07, 0x7F}, /*  77 'M' */
+    {0xFF, 0x07, 0x18, 0xE0, 0xFF, 0x00}, /*  78 'N' */
+    {0x3C, 0x63, 0x41, 0x41, 0x63, 0x3E}, /*  79 'O' */
+    {0xFF, 0x11, 0x11, 0x1B, 0x0E, 0x00}, /*  80 'P' */
+    {0x1E, 0x21, 0xC1, 0xA3, 0x9C, 0x00}, /*  81 'Q' */
+    {0xFF, 0x09, 0x19, 0x6F, 0x80, 0x00}, /*  82 'R' */
+    {0x86, 0x89, 0x99, 0x91, 0x60, 0x00}, /*  83 'S' */
+    {0x01, 0x01, 0x7F, 0x7F, 0x01, 0x01}, /*  84 'T' */
+    {0x7F, 0x80, 0x80, 0x80, 0x7F, 0x00}, /*  85 'U' */
+    {0x06, 0x1C, 0x60, 0x60, 0x1C, 0x02}, /*  86 'V' */
+    {0x3F, 0x70, 0x18, 0x18, 0x70, 0x7F}, /*  87 'W' */
+    {0x40, 0x63, 0x1C, 0x1C, 0x63, 0x40}, /*  88 'X' */
+    {0x02, 0x06, 0x78, 0x18, 0x06, 0x02}, /*  89 'Y' */
+    {0xC1, 0xE1, 0x99, 0x87, 0x83, 0x00}, /*  90 'Z' */
+    {0x00, 0x00, 0xFF, 0x81, 0x00, 0x00}, /*  91 '[' */
+    {0x00, 0x03, 0x0C, 0x30, 0x80, 0x00}, /*  92 '\' */
+    {0x00, 0x00, 0x81, 0xFF, 0x00, 0x00}, /*  93 ']' */
+    {0x20, 0x30, 0x0C, 0x0C, 0x30, 0x20}, /*  94 '^' */
+    {0x08, 0x08, 0x08, 0x08, 0x08, 0x08}, /*  95 '_' */
+    {0x00, 0x04, 0x0C, 0x1C, 0x18, 0x00}, /*  96 '`' */
+    {0x30, 0x79, 0x49, 0x49, 0x2F, 0x7E}, /*  97 'a' */
+    {0x00, 0xFF, 0x84, 0x84, 0x78, 0x00}, /*  98 'b' */
+    {0x1C, 0x3E, 0x43, 0x41, 0x41, 0x41}, /*  99 'c' */
+    {0x00, 0x78, 0x84, 0x84, 0xFF, 0x00}, /* 100 'd' */
+    {0x3C, 0x7E, 0x4A, 0x4A, 0x4E, 0x0C}, /* 101 'e' */
+    {0x08, 0x08, 0xFF, 0x09, 0x09, 0x00}, /* 102 'f' */
+    {0x76, 0xBF, 0xA9, 0xA7, 0x63, 0x00}, /* 103 'g' */
+    {0x00, 0xFF, 0x04, 0x04, 0xF8, 0x00}, /* 104 'h' */
+    {0x00, 0x80, 0x89, 0xF9, 0x80, 0x00}, /* 105 'i' */
+    {0x00, 0x80, 0x84, 0x7D, 0x00, 0x00}, /* 106 'j' */
+    {0xFF, 0x30, 0x78, 0xCC, 0x00, 0x00}, /* 107 'k' */
+    {0x00, 0x81, 0x81, 0xFE, 0x80, 0x00}, /* 108 'l' */
+    {0x7E, 0x02, 0x76, 0x7C, 0x02, 0x7E}, /* 109 'm' */
+    {0x7F, 0x02, 0x01, 0x01, 0x03, 0x7E}, /* 110 'n' */
+    {0x3C, 0x66, 0x42, 0x42, 0x66, 0x3C}, /* 111 'o' */
+    {0x00, 0xFF, 0x21, 0x21, 0x1E, 0x00}, /* 112 'p' */
+    {0x00, 0x1E, 0x21, 0x31, 0xFF, 0x00}, /* 113 'q' */
+    {0x7F, 0x06, 0x01, 0x01, 0x03, 0x06}, /* 114 'r' */
+    {0x46, 0x4F, 0x49, 0x49, 0x79, 0x30}, /* 115 's' */
+    {0x04, 0x06, 0xFF, 0x84, 0x84, 0x00}, /* 116 't' */
+    {0x3F, 0x60, 0x40, 0x40, 0x30, 0x7F}, /* 117 'u' */
+    {0x02, 0x1C, 0x70, 0x60, 0x1C, 0x02}, /* 118 'v' */
+    {0x0E, 0x30, 0x08, 0x18, 0x30, 0x0E}, /* 119 'w' */
+    {0x20, 0x36, 0x1C, 0x1C, 0x36, 0x00}, /* 120 'x' */
+    {0x81, 0x8E, 0x78, 0x0C, 0x03, 0x00}, /* 121 'y' */
+    {0x61, 0x71, 0x59, 0x4D, 0x43, 0x41}, /* 122 'z' */
+    {0x00, 0x08, 0xF7, 0x81, 0x00, 0x00}, /* 123 '{' */
+    {0x00, 0x00, 0xFF, 0x00, 0x00, 0x00}, /* 124 '|' */
+    {0x00, 0x81, 0x7E, 0x08, 0x00, 0x00}, /* 125 '}' */
+    {0x18, 0x08, 0x08, 0x10, 0x10, 0x18}, /* 126 '~' */
+};
+
+/* ============================================================
+ * Penyesuaian waktu tunda terhadap SystemCoreClock (16 MHz / 84 MHz)
+ * ============================================================ */
+static uint32_t clk_scale(void)
+{
+    uint32_t scale = SystemCoreClock / 16000000U;
+    return (scale < 1U) ? 1U : scale;
+}
+
+static void i2c_delay_scaled(uint32_t base_iters)
+{
+    uint32_t n = base_iters * clk_scale();
+    for (volatile uint32_t d = 0U; d < n; d++) { }
+}
+
+/* ============================================================
+ * Bus recovery (SWRST + 9 clock SCL + STOP)
+ * ============================================================ */
+static void i2c_swrst(void)
+{
+    I2C_TypeDef *i2c = SH1106_HI2C.Instance;
+
+    i2c->CR1 &= ~I2C_CR1_PE;
+    i2c_delay_scaled(50U);
+
+    i2c->CR1 |= I2C_CR1_SWRST;
+    i2c_delay_scaled(50U);
+
+    i2c->CR1 &= ~I2C_CR1_SWRST;
+    i2c_delay_scaled(50U);
+
+    i2c->CR1 |= I2C_CR1_PE;
+    i2c_delay_scaled(50U);
+}
+
+static void i2c_bus_recover(void)
+{
+    GPIO_InitTypeDef g = {0};
+
+    __HAL_RCC_GPIOB_CLK_ENABLE();
+
+    g.Pin   = GPIO_PIN_6 | GPIO_PIN_7;
+    g.Mode  = GPIO_MODE_OUTPUT_OD;
+    g.Pull  = GPIO_PULLUP;
+    g.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+    HAL_GPIO_Init(GPIOB, &g);
+
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_7, GPIO_PIN_SET);
+    for (int i = 0; i < 9; i++) {
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_RESET);
+        i2c_delay_scaled(200U);
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_SET);
+        i2c_delay_scaled(200U);
+    }
+    /* STOP: SDA low -> SCL high -> SDA high */
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_7, GPIO_PIN_RESET);
+    i2c_delay_scaled(200U);
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_SET);
+    i2c_delay_scaled(200U);
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_7, GPIO_PIN_SET);
+    i2c_delay_scaled(200U);
+
+    i2c_swrst();
+
+    g.Mode      = GPIO_MODE_AF_OD;
+    g.Alternate = GPIO_AF4_I2C1;
+    HAL_GPIO_Init(GPIOB, &g);
+
+    SH1106_HI2C.State = HAL_I2C_STATE_RESET;
+    HAL_I2C_Init(&SH1106_HI2C);
+
+    for (int t = 0; t < 3; t++) {
+        if ((SH1106_HI2C.Instance->SR2 & I2C_SR2_BUSY) == 0U) {
+            break;
+        }
+        i2c_swrst();
+        SH1106_HI2C.State = HAL_I2C_STATE_RESET;
+        HAL_I2C_Init(&SH1106_HI2C);
+    }
+}
+
+static void i2c_restore_af_pins(void)
+{
+    GPIO_InitTypeDef g = {0};
+    __HAL_RCC_GPIOB_CLK_ENABLE();
+    g.Pin       = GPIO_PIN_6 | GPIO_PIN_7;
+    g.Mode      = GPIO_MODE_AF_OD;
+    g.Pull      = GPIO_PULLUP;
+    g.Speed     = GPIO_SPEED_FREQ_VERY_HIGH;
+    g.Alternate = GPIO_AF4_I2C1;
+    HAL_GPIO_Init(GPIOB, &g);
+}
+
+/* ============================================================
+ * Fallback bit-bang dinamis pada GPIOB
+ * ============================================================ */
+#define X_SCL_H()    do { GPIOB->BSRR = g_sh1106_scl_pin; } while (0)
+#define X_SCL_L()    do { GPIOB->BSRR = (uint32_t)g_sh1106_scl_pin << 16; } while (0)
+#define X_SDA_H()    do { GPIOB->BSRR = g_sh1106_sda_pin; } while (0)
+#define X_SDA_L()    do { GPIOB->BSRR = (uint32_t)g_sh1106_sda_pin << 16; } while (0)
+#define X_SDA_READ() ((GPIOB->IDR & g_sh1106_sda_pin) ? 1U : 0U)
+
+static void xb_sda_in(void)
+{
+    uint32_t pos = (uint32_t)__builtin_ctz(g_sh1106_sda_pin) * 2U;
+    GPIOB->MODER = (GPIOB->MODER & ~(3UL << pos));
+}
+
+static void xb_sda_out(void)
+{
+    uint32_t pos = (uint32_t)__builtin_ctz(g_sh1106_sda_pin) * 2U;
+    GPIOB->MODER = (GPIOB->MODER & ~(3UL << pos)) | (1UL << pos);
+}
+
+static void xb_delay(void)
+{
+    i2c_delay_scaled(100U);
+}
+
+static void xb_init_pins(void)
+{
+    GPIO_InitTypeDef g = {0};
+    uint16_t pins = (uint16_t)(g_sh1106_scl_pin | g_sh1106_sda_pin);
+    __HAL_RCC_GPIOB_CLK_ENABLE();
+    HAL_GPIO_WritePin(GPIOB, pins, GPIO_PIN_SET);
+
+    /* SCL didrive push-pull agar clock tetap penuh ke 3.3V walau tanpa pull-up eksternal */
+    g.Pin   = g_sh1106_scl_pin;
+    g.Mode  = GPIO_MODE_OUTPUT_PP;
+    g.Pull  = GPIO_PULLUP;
+    g.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+    HAL_GPIO_Init(GPIOB, &g);
+
+    g.Pin   = g_sh1106_sda_pin;
+    g.Mode  = GPIO_MODE_OUTPUT_OD;
+    g.Pull  = GPIO_PULLUP;
+    g.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+    HAL_GPIO_Init(GPIOB, &g);
+
+    HAL_GPIO_WritePin(GPIOB, pins, GPIO_PIN_SET);
+    xb_delay();
+}
+
+static void xb_start(void)
+{
+    xb_sda_out();
+    X_SDA_H();
+    X_SCL_H();
+    xb_delay();
+    X_SDA_L();
+    xb_delay();
+    X_SCL_L();
+    xb_delay();
+}
+
+static void xb_stop(void)
+{
+    xb_sda_out();
+    X_SDA_L();
+    xb_delay();
+    X_SCL_H();
+    xb_delay();
+    X_SDA_H();
+    xb_delay();
+}
+
+static int xb_write(uint8_t b)
+{
+    xb_sda_out();
+    for (int i = 7; i >= 0; i--) {
+        if (b & (1U << i)) {
+            X_SDA_H();
+        } else {
+            X_SDA_L();
+        }
+        xb_delay();
+        X_SCL_H();
+        xb_delay();
+        X_SCL_L();
+        xb_delay();
+    }
+    X_SDA_H();
+    xb_sda_in();
+    xb_delay();
+    X_SCL_H();
+    xb_delay();
+    int ack = (X_SDA_READ() == 0U) ? 1 : 0;
+    X_SCL_L();
+    xb_delay();
+    xb_sda_out();
+    return ack;
+}
+
+static void xb_bus_flush(void)
+{
+    xb_sda_out();
+    X_SDA_H();
+    for (int i = 0; i < 9; i++) {
+        X_SCL_L();
+        xb_delay();
+        X_SCL_H();
+        xb_delay();
+    }
+    X_SCL_L();
+    xb_delay();
+    xb_stop();
+}
+
+static bool xb_probe_pair(uint16_t scl_pin, uint16_t sda_pin, uint8_t addr7)
+{
+    g_sh1106_scl_pin = scl_pin;
+    g_sh1106_sda_pin = sda_pin;
+    xb_init_pins();
+    xb_sda_in();
+    xb_delay();
+
+    if (X_SDA_READ() == 0U || (GPIOB->IDR & scl_pin) == 0U) {
+        goto fail_pair;
+    }
+
+    xb_bus_flush();
+
+    /* Alamat dummy 0x08 wajib NACK */
+    xb_start();
+    int dummy_ack = xb_write((uint8_t)(0x08U << 1));
+    xb_stop();
+    xb_delay();
+    if (dummy_ack != 0) {
+        goto fail_pair;
+    }
+
+    for (int t = 0; t < 3; t++) {
+        xb_start();
+        int ack = xb_write((uint8_t)(addr7 << 1));
+        xb_stop();
+        xb_delay();
+        if (ack) {
+            return true;
+        }
+    }
+
+fail_pair:
+    {
+        uint16_t non_i2c = (uint16_t)((scl_pin | sda_pin) & (uint16_t)(~(GPIO_PIN_6 | GPIO_PIN_7)));
+        if (non_i2c != 0U) {
+            GPIO_InitTypeDef g = {0};
+            g.Pin   = non_i2c;
+            g.Mode  = GPIO_MODE_INPUT;
+            g.Pull  = GPIO_NOPULL;
+            g.Speed = GPIO_SPEED_FREQ_LOW;
+            HAL_GPIO_Init(GPIOB, &g);
+        }
+        if ((scl_pin | sda_pin) & (GPIO_PIN_6 | GPIO_PIN_7)) {
+            i2c_restore_af_pins();
+        }
+    }
+    return false;
+}
+
+static bool xb_probe(uint8_t addr7)
+{
+    static const uint16_t PAIRS[][2] = {
+        { GPIO_PIN_6,  GPIO_PIN_7  },
+        { GPIO_PIN_7,  GPIO_PIN_6  },
+        { GPIO_PIN_8,  GPIO_PIN_9  },
+        { GPIO_PIN_9,  GPIO_PIN_8  },
+        { GPIO_PIN_5,  GPIO_PIN_6  },
+        { GPIO_PIN_6,  GPIO_PIN_5  },
+        { GPIO_PIN_7,  GPIO_PIN_8  },
+        { GPIO_PIN_8,  GPIO_PIN_7  },
+        { GPIO_PIN_4,  GPIO_PIN_5  },
+        { GPIO_PIN_5,  GPIO_PIN_4  },
+        { GPIO_PIN_3,  GPIO_PIN_4  },
+        { GPIO_PIN_4,  GPIO_PIN_3  },
+        { GPIO_PIN_10, GPIO_PIN_12 },
+        { GPIO_PIN_12, GPIO_PIN_10 },
+        { GPIO_PIN_12, GPIO_PIN_13 },
+        { GPIO_PIN_13, GPIO_PIN_12 },
+        { GPIO_PIN_13, GPIO_PIN_14 },
+        { GPIO_PIN_14, GPIO_PIN_13 },
+        { GPIO_PIN_14, GPIO_PIN_15 },
+        { GPIO_PIN_15, GPIO_PIN_14 },
+    };
+
+    for (size_t i = 0U; i < sizeof(PAIRS) / sizeof(PAIRS[0]); i++) {
+        uint16_t scl = PAIRS[i][0];
+        uint16_t sda = PAIRS[i][1];
+        if (xb_probe_pair(scl, sda, addr7)) {
+            uint16_t used    = (uint16_t)(scl | sda);
+            uint16_t restore = (uint16_t)((GPIO_PIN_6 | GPIO_PIN_7) & (uint16_t)(~used));
+            if (restore != 0U) {
+                GPIO_InitTypeDef g = {0};
+                g.Pin       = restore;
+                g.Mode      = GPIO_MODE_AF_OD;
+                g.Pull      = GPIO_PULLUP;
+                g.Speed     = GPIO_SPEED_FREQ_VERY_HIGH;
+                g.Alternate = GPIO_AF4_I2C1;
+                HAL_GPIO_Init(GPIOB, &g);
+            }
+            return true;
+        }
+    }
+
+    g_sh1106_scl_pin = GPIO_PIN_7;
+    g_sh1106_sda_pin = GPIO_PIN_6;
+    return false;
+}
+
+uint32_t SH1106_Scan(uint32_t *lo, uint32_t *hi)
+{
+    uint32_t n = 0;
+    if (lo) { *lo = 0; }
+    if (hi) { *hi = 0; }
+
+    for (uint8_t a = 0x08; a <= 0x77; a++) {
+        if (HAL_I2C_IsDeviceReady(&SH1106_HI2C, (uint16_t)(a << 1), 2, 10) == HAL_OK) {
+            if (a < 0x40) {
+                if (lo) { *lo |= (1UL << (a - 0x08)); }
+            } else {
+                if (hi) { *hi |= (1UL << (a - 0x40)); }
+            }
+            n++;
+        }
+    }
+    return n;
+}
+
+static void write_cmd(uint8_t cmd)
+{
+    if (g_sh1106_swapped == 1U) {
+        xb_start();
+        int a1 = xb_write((uint8_t)(s_addr7 << 1));
+        int a2 = xb_write(0x00);
+        int a3 = xb_write(cmd);
+        xb_stop();
+        int ack = a1 && a2 && a3;
+        g_sh1106_last = ack ? 0U : 1U;
+        if (ack) { g_sh1106_ok++; } else { g_sh1106_fail++; }
+        return;
+    }
+
+    HAL_StatusTypeDef st = HAL_I2C_Mem_Write(&SH1106_HI2C, (uint16_t)(s_addr7 << 1), 0x00,
+                                             I2C_MEMADD_SIZE_8BIT, &cmd, 1, SH1106_TIMEOUT);
+    if (st == HAL_BUSY) {
+        g_sh1106_recover++;
+        i2c_bus_recover();
+        st = HAL_I2C_Mem_Write(&SH1106_HI2C, (uint16_t)(s_addr7 << 1), 0x00,
+                               I2C_MEMADD_SIZE_8BIT, &cmd, 1, SH1106_TIMEOUT);
+    }
+
+    g_sh1106_last = (uint32_t)st;
+    if (st == HAL_OK) { g_sh1106_ok++; } else { g_sh1106_fail++; }
+}
+
+static void write_data(const uint8_t *data, uint16_t len)
+{
+    if (g_sh1106_swapped == 1U) {
+        xb_start();
+        int ack = xb_write((uint8_t)(s_addr7 << 1)) && xb_write(0x40);
+        if (ack) {
+            for (uint16_t i = 0; i < len; i++) {
+                if (!xb_write(data[i])) {
+                    ack = 0;
+                    break;
+                }
+            }
+        }
+        xb_stop();
+        g_sh1106_last = ack ? 0U : 1U;
+        if (ack) { g_sh1106_ok++; } else { g_sh1106_fail++; }
+        return;
+    }
+
+    HAL_StatusTypeDef st = HAL_I2C_Mem_Write(&SH1106_HI2C, (uint16_t)(s_addr7 << 1), 0x40,
+                                             I2C_MEMADD_SIZE_8BIT, (uint8_t *)data, len, SH1106_TIMEOUT);
+    if (st == HAL_BUSY) {
+        g_sh1106_recover++;
+        i2c_bus_recover();
+        st = HAL_I2C_Mem_Write(&SH1106_HI2C, (uint16_t)(s_addr7 << 1), 0x40,
+                               I2C_MEMADD_SIZE_8BIT, (uint8_t *)data, len, SH1106_TIMEOUT);
+    }
+    g_sh1106_last = (uint32_t)st;
+    if (st == HAL_OK) { g_sh1106_ok++; } else { g_sh1106_fail++; }
+}
+
+static void send_init_commands(void)
+{
+    static const uint8_t init_cmds[] = {
+        0xAE,          /* display off                  */
+        0xD5, 0x80,    /* clock divide ratio           */
+        0xA8, 0x3F,    /* multiplex ratio = 64         */
+        0xD3, 0x00,    /* display offset = 0           */
+        0x40,          /* start line = 0               */
+        0xAD, 0x8B,    /* charge pump ON (khas SH1106) */
+        0xA1,          /* segment remap                */
+        0xC8,          /* COM scan direction remapped  */
+        0xDA, 0x12,    /* COM pins hardware config     */
+        0x81, 0xCF,    /* contrast                     */
+        0xD9, 0x22,    /* pre-charge period            */
+        0xDB, 0x35,    /* VCOM deselect level          */
+        0xA4,          /* resume dari all-on           */
+        0xA6,          /* normal (bukan invert)        */
+        0xAF           /* display on                   */
+    };
+    for (size_t i = 0U; i < sizeof(init_cmds) / sizeof(init_cmds[0]); i++) {
+        write_cmd(init_cmds[i]);
+    }
+}
+
+void SH1106_Init(void)
+{
+    bool hw_ready = false;
+
+    if (g_sh1106_swapped == 0U) {
+        i2c_bus_recover();
+        hw_ready = (HAL_I2C_IsDeviceReady(&SH1106_HI2C, (uint16_t)(s_addr7 << 1), 2, 10) == HAL_OK);
+        if (!hw_ready && xb_probe(s_addr7)) {
+            g_sh1106_swapped = 1U;
+        }
+    }
+    if (g_sh1106_swapped == 1U) {
+        xb_init_pins();
+    } else {
+        i2c_restore_af_pins();
+    }
+
+    send_init_commands();
+    SH1106_Clear();
+    SH1106_Update();
+
+    /* Jika probe belum mendapat ACK, kirim juga via bit-bang PB7=SCL, PB6=SDA */
+    if ((g_sh1106_swapped == 0U) && !hw_ready) {
+        uint16_t prev_scl = g_sh1106_scl_pin;
+        uint16_t prev_sda = g_sh1106_sda_pin;
+        g_sh1106_scl_pin = GPIO_PIN_7;
+        g_sh1106_sda_pin = GPIO_PIN_6;
+        g_sh1106_swapped = 1U;
+        xb_init_pins();
+        send_init_commands();
+        SH1106_Update();
+        g_sh1106_swapped = 0U;
+        g_sh1106_scl_pin = prev_scl;
+        g_sh1106_sda_pin = prev_sda;
+        i2c_restore_af_pins();
+    }
+}
+
+void SH1106_Clear(void)
+{
+    for (int p = 0; p < 8; p++) {
+        for (int x = 0; x < SH1106_WIDTH; x++) {
+            s_fb[p][x] = 0x00;
+        }
+    }
+}
+
+void SH1106_Update(void)
+{
+    for (uint8_t page = 0; page < 8; page++) {
+        write_cmd((uint8_t)(0xB0U | page)); /* set page address */
+        write_cmd(0x02U);                   /* offset kolom +2 SH1106 */
+        write_cmd(0x10U);                   /* kolom atas = 0 */
+        write_data(s_fb[page], SH1106_WIDTH);
+    }
+}
+
+bool SH1106_Probe(uint8_t addr7)
+{
+    if (g_sh1106_swapped == 1U) {
+        if (xb_probe(addr7)) {
+            return true;
+        }
+    }
+    i2c_restore_af_pins();
+    if (SH1106_HI2C.Instance->SR2 & I2C_SR2_BUSY) {
+        i2c_bus_recover();
+    }
+    if (HAL_I2C_IsDeviceReady(&SH1106_HI2C, (uint16_t)(addr7 << 1), 2, 10) == HAL_OK) {
+        g_sh1106_swapped = 0U;
+        return true;
+    }
+    if (xb_probe(addr7)) {
+        g_sh1106_swapped = 1U;
+        return true;
+    }
+    if (g_sh1106_swapped == 1U) {
+        xb_init_pins();
+    } else {
+        i2c_restore_af_pins();
+    }
+    return false;
+}
+
+void SH1106_SetAddress(uint8_t addr7)
+{
+    s_addr7 = addr7;
+}
+
+static uint8_t xb_diag_scan_pair(uint16_t scl_pin, uint16_t sda_pin, uint8_t *step_out)
+{
+    uint8_t step  = 0U;
+    uint8_t found = 0U;
+
+    g_sh1106_scl_pin = scl_pin;
+    g_sh1106_sda_pin = sda_pin;
+    xb_init_pins();
+    xb_sda_in();
+    xb_delay();
+
+    if ((X_SDA_READ() != 0U) && ((GPIOB->IDR & scl_pin) != 0U)) {
+        step |= 0x01U;
+    } else {
+        *step_out = step;
+        return 0U;
+    }
+
+    xb_bus_flush();
+
+    xb_start();
+    int dummy_ack = xb_write((uint8_t)(0x08U << 1));
+    xb_stop();
+    xb_delay();
+    if (dummy_ack == 0) {
+        step |= 0x02U;
+    } else {
+        *step_out = step;
+        return 0U;
+    }
+
+    static const uint8_t ADDRS[2] = { 0x3CU, 0x3DU };
+    for (size_t i = 0U; i < 2U; i++) {
+        uint8_t a = ADDRS[i];
+        xb_start();
+        int ack = xb_write((uint8_t)(a << 1));
+        xb_stop();
+        xb_delay();
+        if (ack) {
+            if (a == 0x3CU) { step |= 0x04U; }
+            if (a == 0x3DU) { step |= 0x08U; }
+            if (found == 0U) { found = a; }
+        }
+    }
+
+    *step_out = step;
+    return found;
+}
+
+void SH1106_DiagPins(void)
+{
+    const uint32_t diag_pins = GPIO_PIN_3 | GPIO_PIN_4 | GPIO_PIN_5 | GPIO_PIN_6
+                             | GPIO_PIN_7 | GPIO_PIN_8 | GPIO_PIN_9 | GPIO_PIN_10
+                             | GPIO_PIN_12 | GPIO_PIN_13 | GPIO_PIN_14 | GPIO_PIN_15;
+    GPIO_InitTypeDef g = {0};
+
+    __HAL_RCC_GPIOB_CLK_ENABLE();
+
+    g.Pin   = diag_pins;
+    g.Mode  = GPIO_MODE_INPUT;
+    g.Speed = GPIO_SPEED_FREQ_LOW;
+
+    g.Pull = GPIO_PULLDOWN;
+    HAL_GPIO_Init(GPIOB, &g);
+    HAL_Delay(5);
+    g_i2c_pd = (GPIOB->IDR & 0xFFFFU);
+
+    g.Pull = GPIO_PULLUP;
+    HAL_GPIO_Init(GPIOB, &g);
+    HAL_Delay(5);
+    g_i2c_pu = (GPIOB->IDR & 0xFFFFU);
+
+    g.Pull = GPIO_NOPULL;
+    HAL_GPIO_Init(GPIOB, &g);
+    HAL_Delay(5);
+    g_i2c_fl = (GPIOB->IDR & 0xFFFFU);
+
+    /* Kembalikan pin non-I2C ke input no-pull dan PB6/PB7 ke AF4 I2C1 */
+    g.Pin  = (uint32_t)(diag_pins & ~(GPIO_PIN_6 | GPIO_PIN_7));
+    g.Mode = GPIO_MODE_INPUT;
+    g.Pull = GPIO_NOPULL;
+    HAL_GPIO_Init(GPIOB, &g);
+
+    i2c_restore_af_pins();
+    if (SH1106_HI2C.Instance->SR2 & I2C_SR2_BUSY) {
+        i2c_bus_recover();
+    }
+    g_probe_hw_3c = (HAL_I2C_IsDeviceReady(&SH1106_HI2C, (uint16_t)(0x3CU << 1), 2, 10) == HAL_OK) ? 1U : 0U;
+
+    uint8_t step67 = 0U;
+    uint8_t step76 = 0U;
+    g_bb67_found  = xb_diag_scan_pair(GPIO_PIN_6, GPIO_PIN_7, &step67);
+    g_bb67_step   = step67;
+    g_bb76_found  = xb_diag_scan_pair(GPIO_PIN_7, GPIO_PIN_6, &step76);
+    g_bb76_step   = step76;
+    g_probe_bb_67 = ((step67 & 0x04U) != 0U) ? 1U : 0U;
+    g_probe_bb_76 = ((step76 & 0x04U) != 0U) ? 1U : 0U;
+
+    g_sh1106_scl_pin = GPIO_PIN_7;
+    g_sh1106_sda_pin = GPIO_PIN_6;
+    i2c_restore_af_pins();
+}
+
+/* ============================================================
+ * Drawing primitif
+ * ============================================================ */
+void SH1106_SetPixel(int x, int y, bool on)
+{
+    if (x < 0 || x >= SH1106_WIDTH || y < 0 || y >= SH1106_HEIGHT) {
+        return;
+    }
+    uint8_t page = (uint8_t)(y >> 3);
+    uint8_t bit  = (uint8_t)(1U << (y & 7));
+    if (on) {
+        s_fb[page][x] |= bit;
+    } else {
+        s_fb[page][x] &= (uint8_t)(~bit);
+    }
+}
+
+void SH1106_DrawLine(int x0, int y0, int x1, int y1, bool on)
+{
+    int dx  = (x1 > x0) ? (x1 - x0) : (x0 - x1);
+    int dy  = (y1 > y0) ? (y1 - y0) : (y0 - y1);
+    int sx  = (x0 < x1) ? 1 : -1;
+    int sy  = (y0 < y1) ? 1 : -1;
+    int err = dx - dy;
+
+    for (;;) {
+        SH1106_SetPixel(x0, y0, on);
+        if (x0 == x1 && y0 == y1) {
+            break;
+        }
+        int e2 = 2 * err;
+        if (e2 > -dy) {
+            err -= dy;
+            x0  += sx;
+        }
+        if (e2 < dx) {
+            err += dx;
+            y0  += sy;
+        }
+    }
+}
+
+void SH1106_DrawRect(int x, int y, int w, int h, bool on)
+{
+    if (w <= 0 || h <= 0) {
+        return;
+    }
+    SH1106_DrawLine(x,         y,         x + w - 1, y,         on);
+    SH1106_DrawLine(x,         y + h - 1, x + w - 1, y + h - 1, on);
+    SH1106_DrawLine(x,         y,         x,         y + h - 1, on);
+    SH1106_DrawLine(x + w - 1, y,         x + w - 1, y + h - 1, on);
+}
+
+void SH1106_DrawFillRect(int x, int y, int w, int h, bool on)
+{
+    if (w <= 0 || h <= 0) {
+        return;
+    }
+    for (int yy = y; yy < y + h; yy++) {
+        SH1106_DrawLine(x, yy, x + w - 1, yy, on);
+    }
+}
+
+void SH1106_DrawCircle(int cx, int cy, int r, bool on)
+{
+    int x = 0;
+    int y = r;
+    int d = 3 - 2 * r;
+    while (y >= x) {
+        SH1106_SetPixel(cx + x, cy + y, on);
+        SH1106_SetPixel(cx - x, cy + y, on);
+        SH1106_SetPixel(cx + x, cy - y, on);
+        SH1106_SetPixel(cx - x, cy - y, on);
+        SH1106_SetPixel(cx + y, cy + x, on);
+        SH1106_SetPixel(cx - y, cy + x, on);
+        SH1106_SetPixel(cx + y, cy - x, on);
+        SH1106_SetPixel(cx - y, cy - x, on);
+        if (d < 0) {
+            d += 4 * x + 6;
+        } else {
+            d += 4 * (x - y) + 10;
+            y--;
+        }
+        x++;
+    }
+}
+
+void SH1106_DrawFillCircle(int cx, int cy, int r, bool on)
+{
+    for (int y = -r; y <= r; y++) {
+        int half = 0;
+        while ((half + 1) * (half + 1) + y * y <= r * r) {
+            half++;
+        }
+        SH1106_DrawLine(cx - half, cy + y, cx + half, cy + y, on);
+    }
+}
+
+void SH1106_DrawChar(int x, int y, char c)
+{
+    int idx = (int)(unsigned char)c - 32;
+    if (idx < 0 || idx >= 95) {
+        idx = 0;
+    }
+    for (int col = 0; col < 6; col++) {
+        uint8_t bits = FONT6x8[idx][col];
+        for (int row = 0; row < 8; row++) {
+            if (bits & (1U << row)) {
+                SH1106_SetPixel(x + col, y + row, true);
+            }
+        }
+    }
+}
+
+void SH1106_DrawString(int x, int y, const char *s)
+{
+    while (*s) {
+        SH1106_DrawChar(x, y, *s++);
+        x += 6;
+    }
+}

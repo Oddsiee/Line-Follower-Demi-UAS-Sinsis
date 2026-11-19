@@ -18,6 +18,8 @@ volatile uint32_t g_sh1106_fail = 0;
 volatile uint32_t g_sh1106_last = 0;
 volatile uint32_t g_sh1106_recover = 0;
 volatile uint32_t g_sh1106_swapped = 0;
+volatile uint16_t g_sh1106_scl_pin = GPIO_PIN_7;
+volatile uint16_t g_sh1106_sda_pin = GPIO_PIN_6;
 volatile uint32_t g_sh1106_scan_count = 0;
 volatile uint32_t g_sh1106_scan_lo = 0;
 volatile uint32_t g_sh1106_scan_hi = 0;
@@ -222,38 +224,49 @@ static void i2c_restore_af_pins(void)
 }
 
 /* ============================================================
- * Fallback bit-bang untuk kabel SCL/SDA tertukar (SCL=PB7, SDA=PB6)
+ * Fallback bit-bang dinamis pada GPIOB (default SCL=PB7, SDA=PB6)
  * ============================================================ */
-#define X_SCL_H()    do { GPIOB->BSRR = GPIO_PIN_7; } while (0)
-#define X_SCL_L()    do { GPIOB->BSRR = (uint32_t)GPIO_PIN_7 << 16; } while (0)
-#define X_SDA_H()    do { GPIOB->BSRR = GPIO_PIN_6; } while (0)
-#define X_SDA_L()    do { GPIOB->BSRR = (uint32_t)GPIO_PIN_6 << 16; } while (0)
-#define X_SDA_IN()   do { GPIOB->MODER = (GPIOB->MODER & ~(3U << 12)) | (0U << 12); } while (0)
-#define X_SDA_OUT()  do { GPIOB->MODER = (GPIOB->MODER & ~(3U << 12)) | (1U << 12); } while (0)
-#define X_SDA_READ() ((GPIOB->IDR & GPIO_PIN_6) ? 1U : 0U)
+#define X_SCL_H()    do { GPIOB->BSRR = g_sh1106_scl_pin; } while (0)
+#define X_SCL_L()    do { GPIOB->BSRR = (uint32_t)g_sh1106_scl_pin << 16; } while (0)
+#define X_SDA_H()    do { GPIOB->BSRR = g_sh1106_sda_pin; } while (0)
+#define X_SDA_L()    do { GPIOB->BSRR = (uint32_t)g_sh1106_sda_pin << 16; } while (0)
+#define X_SDA_READ() ((GPIOB->IDR & g_sh1106_sda_pin) ? 1U : 0U)
+
+static void xb_sda_in(void)
+{
+    uint32_t pos = (uint32_t)__builtin_ctz(g_sh1106_sda_pin) * 2U;
+    GPIOB->MODER = (GPIOB->MODER & ~(3UL << pos));
+}
+
+static void xb_sda_out(void)
+{
+    uint32_t pos = (uint32_t)__builtin_ctz(g_sh1106_sda_pin) * 2U;
+    GPIOB->MODER = (GPIOB->MODER & ~(3UL << pos)) | (1UL << pos);
+}
 
 static void xb_delay(void)
 {
-    for (volatile int d = 0; d < 25; d++) { }
+    for (volatile int d = 0; d < 40; d++) { }
 }
 
 static void xb_init_pins(void)
 {
     GPIO_InitTypeDef g = {0};
+    uint16_t pins = g_sh1106_scl_pin | g_sh1106_sda_pin;
     __HAL_RCC_GPIOB_CLK_ENABLE();
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6 | GPIO_PIN_7, GPIO_PIN_SET);
-    g.Pin   = GPIO_PIN_6 | GPIO_PIN_7;
+    HAL_GPIO_WritePin(GPIOB, pins, GPIO_PIN_SET);
+    g.Pin   = pins;
     g.Mode  = GPIO_MODE_OUTPUT_OD;
     g.Pull  = GPIO_PULLUP;
     g.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
     HAL_GPIO_Init(GPIOB, &g);
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6 | GPIO_PIN_7, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(GPIOB, pins, GPIO_PIN_SET);
     xb_delay();
 }
 
 static void xb_start(void)
 {
-    X_SDA_OUT();
+    xb_sda_out();
     X_SDA_H();
     X_SCL_H();
     xb_delay();
@@ -265,7 +278,7 @@ static void xb_start(void)
 
 static void xb_stop(void)
 {
-    X_SDA_OUT();
+    xb_sda_out();
     X_SDA_L();
     xb_delay();
     X_SCL_H();
@@ -276,7 +289,7 @@ static void xb_stop(void)
 
 static int xb_write(uint8_t b)
 {
-    X_SDA_OUT();
+    xb_sda_out();
     for (int i = 7; i >= 0; i--) {
         if (b & (1U << i)) X_SDA_H(); else X_SDA_L();
         xb_delay();
@@ -286,24 +299,129 @@ static int xb_write(uint8_t b)
         xb_delay();
     }
     X_SDA_H();
-    X_SDA_IN();
+    xb_sda_in();
     xb_delay();
     X_SCL_H();
     xb_delay();
     int ack = (X_SDA_READ() == 0U) ? 1 : 0;
     X_SCL_L();
     xb_delay();
-    X_SDA_OUT();
+    xb_sda_out();
     return ack;
+}
+
+static void xb_bus_flush(void)
+{
+    xb_sda_out();
+    X_SDA_H();
+    for (int i = 0; i < 9; i++) {
+        X_SCL_L();
+        xb_delay();
+        X_SCL_H();
+        xb_delay();
+    }
+    X_SCL_L();
+    xb_delay();
+    xb_stop();
+}
+
+static bool xb_probe_pair(uint16_t scl_pin, uint16_t sda_pin, uint8_t addr7)
+{
+    g_sh1106_scl_pin = scl_pin;
+    g_sh1106_sda_pin = sda_pin;
+    xb_init_pins();
+    xb_sda_in();
+    xb_delay();
+
+    /* Kedua pin wajib HIGH saat idle (mengeliminasi pin unbonded seperti PB11 atau short ke GND) */
+    if (X_SDA_READ() == 0U || (GPIOB->IDR & scl_pin) == 0U) {
+        goto fail_pair;
+    }
+
+    xb_bus_flush();
+
+    /* Alamat dummy 0x08 wajib NACK (ack == 0); jika ACK berarti SDA macet LOW */
+    xb_start();
+    int dummy_ack = xb_write((uint8_t)(0x08U << 1));
+    xb_stop();
+    xb_delay();
+    if (dummy_ack != 0) {
+        goto fail_pair;
+    }
+
+    for (int t = 0; t < 3; t++) {
+        xb_start();
+        int ack = xb_write((uint8_t)(addr7 << 1));
+        /* Pastikan setelah clock ke-9 turun, slave melepaskan SDA kembali ke HIGH */
+        xb_sda_in();
+        xb_delay();
+        int released = (X_SDA_READ() != 0U) ? 1 : 0;
+        xb_stop();
+        xb_delay();
+        if (ack && released) {
+            return true;
+        }
+    }
+
+fail_pair:
+    {
+        GPIO_InitTypeDef g = {0};
+        g.Pin   = scl_pin | sda_pin;
+        g.Mode  = GPIO_MODE_INPUT;
+        g.Pull  = GPIO_NOPULL;
+        g.Speed = GPIO_SPEED_FREQ_LOW;
+        HAL_GPIO_Init(GPIOB, &g);
+    }
+    return false;
 }
 
 static bool xb_probe(uint8_t addr7)
 {
-    xb_init_pins();
-    xb_start();
-    int ack = xb_write((uint8_t)(addr7 << 1));
-    xb_stop();
-    return ack != 0;
+    static const uint16_t PAIRS[][2] = {
+        { GPIO_PIN_7,  GPIO_PIN_6  },
+        { GPIO_PIN_6,  GPIO_PIN_7  },
+        { GPIO_PIN_8,  GPIO_PIN_9  },
+        { GPIO_PIN_9,  GPIO_PIN_8  },
+        { GPIO_PIN_5,  GPIO_PIN_6  },
+        { GPIO_PIN_6,  GPIO_PIN_5  },
+        { GPIO_PIN_7,  GPIO_PIN_8  },
+        { GPIO_PIN_8,  GPIO_PIN_7  },
+        { GPIO_PIN_4,  GPIO_PIN_5  },
+        { GPIO_PIN_5,  GPIO_PIN_4  },
+        { GPIO_PIN_3,  GPIO_PIN_4  },
+        { GPIO_PIN_4,  GPIO_PIN_3  },
+        { GPIO_PIN_10, GPIO_PIN_12 },
+        { GPIO_PIN_12, GPIO_PIN_10 },
+        { GPIO_PIN_12, GPIO_PIN_13 },
+        { GPIO_PIN_13, GPIO_PIN_12 },
+        { GPIO_PIN_13, GPIO_PIN_14 },
+        { GPIO_PIN_14, GPIO_PIN_13 },
+        { GPIO_PIN_14, GPIO_PIN_15 },
+        { GPIO_PIN_15, GPIO_PIN_14 },
+    };
+
+    for (size_t i = 0; i < sizeof(PAIRS) / sizeof(PAIRS[0]); i++) {
+        uint16_t scl = PAIRS[i][0];
+        uint16_t sda = PAIRS[i][1];
+        if (xb_probe_pair(scl, sda, addr7)) {
+            uint16_t used    = scl | sda;
+            uint16_t restore = (uint16_t)((GPIO_PIN_6 | GPIO_PIN_7) & (uint16_t)(~used));
+            if (restore != 0U) {
+                GPIO_InitTypeDef g = {0};
+                g.Pin       = restore;
+                g.Mode      = GPIO_MODE_AF_OD;
+                g.Pull      = GPIO_PULLUP;
+                g.Speed     = GPIO_SPEED_FREQ_VERY_HIGH;
+                g.Alternate = GPIO_AF4_I2C1;
+                HAL_GPIO_Init(GPIOB, &g);
+            }
+            return true;
+        }
+    }
+
+    g_sh1106_scl_pin = GPIO_PIN_7;
+    g_sh1106_sda_pin = GPIO_PIN_6;
+    return false;
 }
 
 /* Scan bus I2C 0x08..0x77. Bit i = alamat (0x08+i) untuk i<0x38,
@@ -328,8 +446,11 @@ static void write_cmd(uint8_t cmd)
 {
     if (g_sh1106_swapped == 1U) {
         xb_start();
-        int ack = xb_write((uint8_t)(s_addr7 << 1)) && xb_write(0x00) && xb_write(cmd);
+        int a1 = xb_write((uint8_t)(s_addr7 << 1));
+        int a2 = xb_write(0x00);
+        int a3 = xb_write(cmd);
         xb_stop();
+        int ack = a1 && a2 && a3;
         g_sh1106_last = ack ? 0U : 1U;
         if (ack) g_sh1106_ok++; else g_sh1106_fail++;
         return;
@@ -435,7 +556,15 @@ void SH1106_Update(void)
 
 bool SH1106_Probe(uint8_t addr7)
 {
+    if (g_sh1106_swapped == 1U) {
+        if (xb_probe(addr7)) {
+            return true;
+        }
+    }
     i2c_restore_af_pins();
+    if (SH1106_HI2C.Instance->SR2 & I2C_SR2_BUSY) {
+        i2c_bus_recover();
+    }
     if (HAL_I2C_IsDeviceReady(&SH1106_HI2C, (uint16_t)(addr7 << 1), 2, 10) == HAL_OK) {
         g_sh1106_swapped = 0U;
         return true;
@@ -444,7 +573,11 @@ bool SH1106_Probe(uint8_t addr7)
         g_sh1106_swapped = 1U;
         return true;
     }
-    i2c_restore_af_pins();
+    if (g_sh1106_swapped == 1U) {
+        xb_init_pins();
+    } else {
+        i2c_restore_af_pins();
+    }
     return false;
 }
 

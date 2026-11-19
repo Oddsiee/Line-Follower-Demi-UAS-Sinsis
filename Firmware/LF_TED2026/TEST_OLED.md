@@ -1,5 +1,10 @@
 # Test OLED SH1106 (STM32CubeIDE + HAL)
 
+> **PEMBERITAHUAN PENTING (ATURAN LOKASI CODING UTAMA):**
+> Folder `Firmware/LF_TED2026/` ini **sudah tidak digunakan untuk coding utama** (hanya arsip/referensi awal).
+> - Codingan utama robot Line Follower **HANYA** ditulis pada folder **`Line Follower Coding Utama/`** karena `.ioc` utama (**`Line Follower Coding Utama/Line Follower Coding Utama.ioc`**, MCU **`STM32F401CCU6`**) berada di folder tersebut.
+> - **TIDAK ADA coding untuk robot Line Follower di luar folder `Line Follower Coding Utama/`**.
+
 File yang terlibat:
 
 | File | Fungsi |

@@ -2,6 +2,8 @@
 
 > **Catatan Konteks untuk AI Assistant (LLM Context Prompt):**  
 > Dokumen ini adalah referensi arsitektur perangkat keras (*hardware*), skematik, *pinout mapping*, dan aturan *layout* PCB yang sudah difinalisasi untuk proyek robot *Line Follower* tim Mahasiswa S1 Teknik Elektro Universitas Diponegoro (Undip) dalam menghadapi kompetisi nasional **Tech Enthusiast Day (TED) 2026** di Sekolah Vokasi UGM. Saat membantu menulis kode program (*firmware*), melakukan *debugging*, atau mengevaluasi rangkaian, **wajib mengacu secara ketat pada konfigurasi pin dan spesifikasi komponen di bawah ini.**
+>
+> **ATURAN MUTLAK FOLDER CODING UTAMA:** Codingan utama robot Line Follower **HANYA** ditulis pada folder **`Line Follower Coding Utama/`** (dengan file `.ioc` utama `Line Follower Coding Utama/Line Follower Coding Utama.ioc`, MCU **`STM32F401CCU6`**). **TIDAK ADA** coding untuk robot Line Follower di luar folder **`Line Follower Coding Utama/`**.
 
 ---
 
@@ -27,7 +29,7 @@
 | **Aktuator (Motor)** | **Gearbox V.2 Dariyan-X2 (ZRF)** | Sepasang motor DC *high-speed* dengan *gearbox* presisi dan roda *sponge/foam* khusus kompetisi *line follower*. |
 | **Sumber Daya Utama** | **Baterai LiPo 3S ($11.1\text{ V}$)** | Kapasitas $1600\text{ mAh}$ $25\text{C}$ dengan konektor utama **XT60 Female** (di PCB dipasang **XT60 Male** *through-hole* pitch $7.2\text{ mm}$). |
 | **Pemantau Baterai** | **Lipo Battery Buzzer Alarm** | Dipasang **eksternal** langsung ke soket putih *balance* **JST-XH** baterai (tidak menggunakan jalur pembagi tegangan ADC di PCB). |
-| **Regulator Logika** | **Modul MP1584EN Fixed $3.3\text{ V}$** | *Step-down buck converter* DC-DC hingga $3\text{ A}$. Menurunkan tegangan baterai ($\sim 12\text{ V}$) menjadi jalur logika tunggal $+3.3\text{ V}$. |
+| **Regulator Logika** | **Modul MP1584EN ($5.1\text{ V}$)** | *Step-down buck converter* DC-DC hingga $3\text{ A}$. Menurunkan tegangan baterai ($\sim 12\text{ V}$) menjadi jalur daya $+5\text{V\_SYS}$ ($5.1\text{ V}$) untuk suplai pin `5V` STM32 dan `Vcc` Sensor. |
 | **Saklar Daya Utama** | **Rocker Switch KCD11 (2-Pin)** / **Slide Switch SS-12D00** | Memutus/menyambungkan jalur positif utama baterai ($+12\text{V\_RAW} \rightarrow +12\text{V\_SW}$). |
 | **Layar Antarmuka** | **OLED $1.3\text{ inch}$ I2C Putih (4-Pin)** | Resolusi $128\times64$ piksel, menggunakan *driver chip* **SH1106** (bukan SSD1306). Urutan pin fisik: `VCC` - `GND` - `SCL` - `SDA`. |
 | **Tombol Navigasi** | **5x Tactile Switch $6\times6\text{ mm}$ (4-Pin)** | Tipe *straight through-hole* (kaki lurus ke bawah, kode seri `TS-1187` / `TS-1101`). 4 tombol untuk menu (`UP`, `DOWN`, `OK`, `BACK`) & 1 tombol untuk `HARD RESET`. |
@@ -37,21 +39,21 @@
 
 ## 3. Arsitektur Catu Daya & Penempatan Kapasitor Filter
 
-Sistem kelistrikan dirancang menggunakan topologi **Single Logic Rail ($+3.3\text{ V}$)** untuk mencegah kerusakan pin STM32 akibat tegangan berlebih:
+Sistem kelistrikan dirancang menggunakan jalur suplai utama **`+5V_SYS` ($5.1\text{ V}$)** dari *buck converter* agar LDO onboard Black Pill dapat menghasilkan rel logika $3.3\text{ V}$ yang tetap stabil terhadap *voltage dip* saat motor *stall*:
 
 1. **Jalur Daya Kotor / Motor (`+12V_SW`):**
    * Mengalir dari pin positif konektor **XT60** $\rightarrow$ melewati **Saklar Utama** $\rightarrow$ menuju terminal baut `(+)` **Driver Motor ZK-5AD** dan pin `IN+` **Modul MP1584EN**.
    * **Filter `C1` (Elco $470\ \mu\text{F} / 25\text{ V}$):** Dipasang paralel antara `+12V_SW` dan `GND`, diletakkan **sedekat mungkin dengan terminal baut daya ZK-5AD** untuk meredam lonjakan arus (*current spike* & *voltage dip*) saat motor berakselerasi mendadak.
-2. **Jalur Daya Bersih / Logika (`+3V3_SYS`):**
-   * Keluar dari pin `OUT+` **Modul MP1584EN Fixed $3.3\text{ V}$** (kedua lubang `OUT+` pada modul digabung menjadi satu jalur).
+2. **Jalur Daya Buck Converter (`+5V_SYS` = $5.1\text{ V}$) & Rel Logika $3.3\text{ V}$:**
+   * Keluar dari pin `OUT+` **Modul MP1584EN ($5.1\text{ V}$)** (kedua lubang `OUT+` pada modul digabung menjadi satu jalur `+5V_SYS`).
    * Menyuplai daya ke:
-     * Pin `3V3` **STM32F411 Black Pill** (masuk melalui pin kanan atas: **Pin 23 `3V3` & Pin 22 `GND`**).
-     * Pin `Vcc` **Kepala Sensor 16CH Dariyan-X**.
-     * Pin `VCC` **Layar OLED $1.3\text{"}$** (diambil dari pin kiri bawah STM32: **Pin 20 `3V3` & Pin 19 `GND`** agar jalur PCB tidak menumpuk).
-   * **Filter `C2` (Elco $100\ \mu\text{F} / 16\text{ V}$):** Dipasang tepat di pintu keluar `OUT+` dan `OUT-` modul **MP1584EN** sebagai tandon daya (*bulk capacitor*) frekuensi rendah.
-   * **Filter `C3` (Keramik $100\text{ nF}$ / Kode `104`):** Dipasang paralel mendampingi Elco, diletakkan **mepet di samping Pin 23 (`3V3`) dan Pin 22 (`GND`) STM32 sisi kanan atas** sebagai *decoupling capacitor* untuk membuang *noise* frekuensi tinggi ($\sim 1\text{ MHz}$ *switching* regulator & $100\text{ MHz}$ *clock* CPU) ke `GND`.
+     * Pin **`5V` STM32 Black Pill** (masuk melalui pin kanan atas: **Pin 21 `5V` & Pin 22 `GND`**) — LDO internal Black Pill menurunkan $5.1\text{ V}$ menjadi $+3.3\text{ V}$ internal MCU.
+     * Pin **`Vcc` ($5\text{ V}$) Kepala Sensor 16CH Dariyan-X** *(catatan: pastikan output analog `Out1..Out4` tidak melebihi $3.3\text{ V}$ pada kondisi garis/pantulan maksimal, karena ADC STM32 `PA0..PA2`, `PB1` bekerja pada $3.3\text{ V}$)*.
+     * Pin `VCC` **Layar OLED $1.3\text{"}$** tetap mengambil $+3.3\text{ V}$ terregulasi dari pin kiri bawah STM32 (**Pin 20 `3V3` & Pin 19 `GND`**), atau $+5\text{V\_SYS}$ bila modul OLED mendukung input $5\text{ V}$.
+   * **Filter `C2` (Elco $100\ \mu\text{F} / 16\text{ V}$):** Dipasang tepat di pintu keluar `OUT+` ($5.1\text{ V}$) dan `OUT-` modul **MP1584EN** sebagai tandon daya (*bulk capacitor*) frekuensi rendah.
+   * **Filter `C3` (Keramik $100\text{ nF}$ / Kode `104`):** Dipasang paralel mendampingi Elco, diletakkan **mepet di samping Pin 21 (`5V`) dan Pin 22 (`GND`) STM32 sisi kanan atas** sebagai *decoupling capacitor* untuk membuang *noise* frekuensi tinggi ($\sim 1\text{ MHz}$ *switching* regulator & *clock* CPU) ke `GND`.
 3. **Isolasi Regulator Driver Motor:**
-   * Pin `3V3` pada header kontrol 7-pin modul **ZK-5AD** merupakan *output* tegangan $3.3\text{ V}$ internal driver. Pin ini **WAJIB DIBIARKAN KOSONG (`NC` / *No Connect*)** dan dilarang keras disambungkan ke jalur `+3V3_SYS` agar tidak terjadi tabrakan arus antar-regulator.
+   * Pin `3V3` pada header kontrol 7-pin modul **ZK-5AD** merupakan *output* tegangan $3.3\text{ V}$ internal driver. Pin ini **WAJIB DIBIARKAN KOSONG (`NC` / *No Connect*)** dan dilarang keras disambungkan ke jalur daya mana pun agar tidak terjadi tabrakan arus antar-regulator.
 
 ---
 
@@ -74,16 +76,16 @@ Ringkasan pin sesuai urutan header STM32:
 | **Sensor Dariyan-X (Pin 4)** | `Out3` | `SENS_OUT3` | **`PA2`** | `ADC1_IN2` (Baca grup sensor 9–12) |
 | **Sensor Dariyan-X (Pin 5)** | `In1` | `MUX_IN1` | **`PA3`** | `GPIO_Output` (Selektor Multiplexer Bit 0) |
 | **Sensor Dariyan-X (Pin 6)** | `In2` | `MUX_IN2` | **`PB0`** | `GPIO_Output` (Selektor Multiplexer Bit 1) |
-| **Sensor Dariyan-X (Pin 7)** | `Vcc` | `+3V3_SYS` | **`3V3`** | Suplai Daya Sensor $+3.3\text{ V}$ |
+| **Sensor Dariyan-X (Pin 7)** | `Vcc` | `+5V_SYS` | **`5V` (Buck `5.1 V`)** | Suplai Daya Sensor $+5\text{ V}$ ($5.1\text{ V}$) |
 | **Sensor Dariyan-X (Pin 8)** | `Out4` | `SENS_OUT4` | **`PB1`** | `ADC1_IN9` (Baca grup sensor 13–16) |
 | **Driver ZK-5AD (Pin 1)** | `GND` | `GND` | **`G` (`GND`)** | Referensi Ground Sinyal PWM |
 | **Driver ZK-5AD (Pin 2)** | `3V3` | *(Tidak Disambung / NC)* | **NC** | **JANGAN DISAMBUNG!** |
-| **Driver ZK-5AD (Pin 3)** | `D0` | `DRV_D0` | **`PA8`** | `TIM1_CH1` (PWM Motor 1 / Kiri - IN1) |
-| **Driver ZK-5AD (Pin 4)** | `D1` | `DRV_D1` | **`PA9`** | `TIM1_CH2` (PWM Motor 1 / Kiri - IN2) |
-| **Driver ZK-5AD (Pin 5)** | `D2` | `DRV_D2` | **`PA10`** | `TIM1_CH3` (PWM Motor 2 / Kanan - IN1) |
-| **Driver ZK-5AD (Pin 6)** | `D3` | `DRV_D3` | **`PA11`** | `TIM1_CH4` (PWM Motor 2 / Kanan - IN2) |
+| **Driver ZK-5AD (Pin 3)** | `D0` | `DRV_D0` | **`PA8`** | `TIM1_CH1` (PWM Motor Kanan - IN2 / Mundur) |
+| **Driver ZK-5AD (Pin 4)** | `D1` | `DRV_D1` | **`PA9`** | `TIM1_CH2` (PWM Motor Kanan - IN1 / Maju) |
+| **Driver ZK-5AD (Pin 5)** | `D2` | `DRV_D2` | **`PA10`** | `TIM1_CH3` (PWM Motor Kiri - IN2 / Mundur) |
+| **Driver ZK-5AD (Pin 6)** | `D3` | `DRV_D3` | **`PA11`** | `TIM1_CH4` (PWM Motor Kiri - IN1 / Maju) |
 | **Driver ZK-5AD (Pin 7)** | `VT` | *(Tidak Disambung / NC)* | **NC** | Tidak digunakan |
-| **OLED 1.3" SH1106 (Pin 1)** | `VCC` | `+3V3_SYS` | **`3V3` (Pin 20)** | Suplai Daya Layar $+3.3\text{ V}$ |
+| **OLED 1.3" SH1106 (Pin 1)** | `VCC` | `+3V3_MCU` | **`3V3` (Pin 20)** | Suplai Daya Layar $+3.3\text{ V}$ (dari LDO STM32) |
 | **OLED 1.3" SH1106 (Pin 2)** | `GND` | `GND` | **`GND` (Pin 19)** | Ground Layar |
 | **OLED 1.3" SH1106 (Pin 3)** | `SCL` | `OLED_SCL` | **`PB6`** | `I2C1_SCL` (Hardware I2C1 Clock) |
 | **OLED 1.3" SH1106 (Pin 4)** | `SDA` | `OLED_SDA` | **`PB7`** | `I2C1_SDA` (Hardware I2C1 Data) |
@@ -99,18 +101,18 @@ Ringkasan pin sesuai urutan header STM32:
 
 ```text
 ========================================================================================================
-[BLOK 1: SUMBER DAYA, SAKLAR UTAMA & FILTER]             [BLOK 2: BUCK CONVERTER & FILTER LOGIKA 3.3V]
+[BLOK 1: SUMBER DAYA, SAKLAR UTAMA & FILTER]             [BLOK 2: BUCK CONVERTER 5.1V & FILTER +5V_SYS]
 ========================================================================================================
 
-  J_XT60 (XT60 Male di PCB - Pitch 7.2mm)                  U_BUCK (Modul MP1584EN Fixed 3.3V)
+  J_XT60 (XT60 Male di PCB - Pitch 7.2mm)                  U_BUCK (Modul MP1584EN Output 5.1V)
   ┌──────────┐        SW_PWR (Saklar KCD11 2-Pin)          ┌──────────────────────┐
-  │ 1 (POS+) ├─────────┬──/ ──┬───────────────────────────►│ IN+             OUT+ ├───┬───┬───► +3V3_SYS
-  │          │         │      │                            │                      │   │   │
-  │ 2 (NEG-) ├───┐     │      ├───┐                        │                      │  ┌┴┐ ┌┴┐
+  │ 1 (POS+) ├─────────┬──/ ──┬───────────────────────────►│ IN+             OUT+ ├───┬───┬───► +5V_SYS
+  │          │         │      │                            │                      │   │   │       (ke Pin 5V STM32
+  │ 2 (NEG-) ├───┐     │      ├───┐                        │                      │  ┌┴┐ ┌┴┐       & Vcc Sensor)
   └──────────┘   │     │      │  ┌┴┐ C1 (Elco 470uF/25V)   │                      │  │+│ │ │ C3 (Keramik
                  │     │      │  │+│ [Dekat Baut ZK-5AD]   │                      │  └┬┘ └┬┘  100nF/104)
                 ─┴─    │      │  └┬┘                       │                      │   │   │  [Dekat Pin
-                GND    │      │  ─┴─                       │ IN-             OUT- ├─┐ │   │   23 & 22 MCU]
+                GND    │      │  ─┴─                       │ IN-             OUT- ├─┐ │   │   21 & 22 MCU]
                        │      │  GND                       └──────────────────────┘ │ │   │
                        │      │                                      ▲              │ │   │
                        │      └──► +12V_SW (Jalur Tebal 2mm          └──────────────┴─┴───┴───► ─┴─ GND
@@ -118,19 +120,19 @@ Ringkasan pin sesuai urutan header STM32:
 
 
 ========================================================================================================
-[BLOK 3: MIKROKONTROLER - MODUL STM32F411CEU6 "BLACK PILL" (2x Baris Header 1x20)]
+[BLOK 3: MIKROKONTROLER - MODUL STM32 "BLACK PILL" (2x Baris Header 1x20)]
 ========================================================================================================
 
                  DERET PIN KIRI (Pin 1 - 20)                           DERET PIN KANAN (Pin 21 - 40)
                      ┌──────────────┐                                   ┌──────────────┐
-          (Kosong) x─┤ 1  PB12      │                                   │ 5V        21 ├─x (Kosong)
+          (Kosong) x─┤ 1  PB12      │                                   │ 5V        21 ◄──── +5V_SYS ( + C3 )
           (Kosong) x─┤ 2  PB13      │                                   │ GND       22 ├───► GND ( + C3 )
-          (Kosong) x─┤ 3  PB14      │                                   │ 3V3       23 ◄──── +3V3_SYS ( + C3 )
+          (Kosong) x─┤ 3  PB14      │                                   │ 3V3       23 ├─x (LDO Out 3.3V)
           (Kosong) x─┤ 4  PB15      │                          (Kosong) │ PB10      24 ├─x
-      DRV_D0 (M1) ◄──┤ 5  PA8       │                          (Kosong) │ PB2       25 ├─x
-      DRV_D1 (M1) ◄──┤ 6  PA9       │                     SENS_OUT4 ───►│ PB1       26 │
-      DRV_D2 (M2) ◄──┤ 7  PA10      │                       MUX_IN2 ◄───┤ PB0       27 │
-      DRV_D3 (M2) ◄──┤ 8  PA11      │                      BTN_UP   ───►│ PA7       28 │
+      DRV_D0 (R-) ◄──┤ 5  PA8       │                          (Kosong) │ PB2       25 ├─x
+      DRV_D1 (R+) ◄──┤ 6  PA9       │                     SENS_OUT4 ───►│ PB1       26 │
+      DRV_D2 (L-) ◄──┤ 7  PA10      │                       MUX_IN2 ◄───┤ PB0       27 │
+      DRV_D3 (L+) ◄──┤ 8  PA11      │                      BTN_UP   ───►│ PA7       28 │
           (Kosong) x─┤ 9  PA12      │                      BTN_DOWN ───►│ PA6       29 │
           (Kosong) x─┤ 10 PA15      │                      BTN_OK   ───►│ PA5       30 │
           (Kosong) x─┤ 11 PB3       │                      BTN_BACK ───►│ PA4       31 │
@@ -156,7 +158,7 @@ Konversi satuan dasar di EasyEDA Pro: **$10\text{ mil} = 0.254\text{ mm}$** ($1\
 | :--- | :--- | :--- | :--- | :--- |
 | **Daya Utama & Motor (`+12V_RAW`, `+12V_SW`)** | XT60 $\rightarrow$ Saklar $\rightarrow$ ZK-5AD & Input MP1584EN | **$1.5\text{ mm} - 2.5\text{ mm}$** | **$60\text{ mil} - 100\text{ mil}$** | Menahan lonjakan arus (*stall current*) dua motor Gearbox ZRF hingga $4\text{ A} - 6\text{ A}$ tanpa panas/putus. |
 | **GND Arus Tinggi** | Negatif XT60 $\leftrightarrow$ GND ZK-5AD & `IN-` MP1584EN | **$1.5\text{ mm} - 2.5\text{ mm}$** | **$60\text{ mil} - 100\text{ mil}$** | Jalur balik arus motor wajib sama besar dengan jalur positifnya. |
-| **Daya Logika (`+3V3_SYS`) & GND Logika** | `OUT+` MP1584EN $\rightarrow$ STM32, Sensor Dariyan-X | **$0.6\text{ mm} - 1.0\text{ mm}$** | **$24\text{ mil} - 40\text{ mil}$** | Menjaga kestabilan tegangan referensi ADC STM32 dan suplai 16 LED IR sensor. |
+| **Daya Buck (`+5V_SYS`) & GND Logika** | `OUT+` ($5.1\text{ V}$) MP1584EN $\rightarrow$ Pin `5V` STM32, Sensor Dariyan-X | **$0.6\text{ mm} - 1.0\text{ mm}$** | **$24\text{ mil} - 40\text{ mil}$** | Menjaga kestabilan input LDO STM32 dan suplai $5\text{ V}$ untuk 16 LED IR sensor. |
 | **Daya OLED (`VCC` & `GND` OLED)** | Pin 20/19 STM32 $\rightarrow$ Pin 1/2 OLED $1.3\text{"}$ | **$0.5\text{ mm} - 0.6\text{ mm}$** | **$20\text{ mil} - 24\text{ mil}$** | Beban arus layar kecil ($\sim 30\text{ mA}$), mudah dirutekan di sela-sela pin. |
 | **Sinyal Data & Tombol** | 6 jalur sensor, 4 jalur PWM, `SCL`/`SDA`, 5 tombol | **$0.25\text{ mm} - 0.3\text{ mm}$** | **$10\text{ mil} - 12\text{ mil}$** | Arus logika sangat kecil (mikroampere), ukuran *default* `10 mil` paling rapi dan mudah diselipkan. |
 | **Hamparan Ground Utama** | Seluruh ruang kosong Top & Bottom Layer | **Copper Area (`Shift+P`)** | **Polygon Pour `GND`** | Meredam *noise* elektromagnetik (EMI) motor dan menjadi *heatsink* alami bagi MP1584EN. |
@@ -165,7 +167,9 @@ Konversi satuan dasar di EasyEDA Pro: **$10\text{ mil} = 0.254\text{ mm}$** ($1\
 
 ## 7. Panduan Koding & Perangkat Lunak (Firmware Guidelines)
 
-Bagian ini wajib diperhatikan saat menulis program di Arduino IDE (`STM32duino`) atau STM32CubeIDE:
+> **ATURAN MUTLAK LOKASI CODING:** Codingan utama robot Line Follower **HANYA** ditulis pada folder **`Line Follower Coding Utama/`** (lokasi `.ioc` utama `Line Follower Coding Utama/Line Follower Coding Utama.ioc` dengan target MCU **`STM32F401CCU6`**). **TIDAK ADA** coding untuk robot Line Follower di luar folder **`Line Follower Coding Utama/`**.
+
+Bagian ini wajib diperhatikan saat menulis program di STM32CubeIDE pada folder `Line Follower Coding Utama/`:
 
 ### A. Pembacaan Sensor 16CH Dariyan-X (Dual 4-Ch Multiplexer)
 Kepala sensor menggunakan 2 pin selektor digital (`PA3` untuk `In1`, `PB0` untuk `In2`) dan 4 pin pembacaan analog (`PA0`=`Out1`, `PA1`=`Out2`, `PA2`=`Out3`, `PB1`=`Out4`).
@@ -182,10 +186,12 @@ Kepala sensor menggunakan 2 pin selektor digital (`PA3` untuk `In1`, `PB0` untuk
   Atau gunakan library **`Adafruit_SH1106`** dengan alamat I2C standar **`0x3C`**.
 
 ### C. Kontrol Driver Motor ZK-5AD (Dual H-Bridge)
-Logika pengendalian kecepatan dan arah putaran per motor menggunakan sinyal PWM pada `PA8`–`PA11` (`TIM1`):
-* `D0`=`PA8`, `D1`=`PA9`, `D2`=`PA10`, `D3`=`PA11`. PA11 tetap dipakai untuk motor; USB data tidak digunakan bersamaan dengan PWM pada pin ini. Flash/debug menggunakan ST-Link melalui SWD.
-* **Maju (Forward):** Pin 1 (`D0` / `D2`) diberi sinyal `PWM`, Pin 2 (`D1` / `D3`) diberi `LOW (0)`.
-* **Mundur (Reverse):** Pin 1 (`D0` / `D2`) diberi `LOW (0)`, Pin 2 (`D1` / `D3`) diberi sinyal `PWM`.
+Logika pengendalian kecepatan dan arah putaran per motor menggunakan sinyal PWM `1 kHz` pada `PA8`–`PA11` (`TIM1`):
+* **Motor Kanan (`right`):** `D1`=`PA9` (`TIM1_CH2` = Maju), `D0`=`PA8` (`TIM1_CH1` = Mundur).
+* **Motor Kiri (`left`):** `D3`=`PA11` (`TIM1_CH4` = Maju), `D2`=`PA10` (`TIM1_CH3` = Mundur).
+* PA11 tetap dipakai untuk motor; USB data tidak digunakan bersamaan dengan PWM pada pin ini. Flash/debug menggunakan ST-Link melalui SWD.
+* **Maju (Forward):** Pin maju (`D1` / `D3`) diberi sinyal `PWM`, Pin mundur (`D0` / `D2`) diberi `LOW (0)`.
+* **Mundur (Reverse):** Pin maju (`D1` / `D3`) diberi `LOW (0)`, Pin mundur (`D0` / `D2`) diberi sinyal `PWM`.
 * **Rem Aktif (Brake):** Kedua pin diberi logika `HIGH (1)`.
 * **Bebas (Coast/Stop):** Kedua pin diberi logika `LOW (0)`.
 

@@ -1,5 +1,7 @@
 # Milestone 2 — Sensor 16CH
 
+> **ATURAN MUTLAK LOKASI CODING UTAMA:** Seluruh codingan utama robot Line Follower **HANYA** ditulis pada folder **`Line Follower Coding Utama/`** (tempat `.ioc` utama `Line Follower Coding Utama/Line Follower Coding Utama.ioc` berada, MCU **`STM32F401CCU6`**) dan **TIDAK ADA coding untuk robot Line Follower di luar folder ini**.
+
 - **Pemilik:** A
 - **Jadwal:** 7–11 Nov
 - **Status:** 🟡 berjalan — hardware OK, baseline putih terukur
@@ -86,6 +88,6 @@ berbeda dari sinyal sensor.
 - **Data lengkap ada di [`Documentation/Hardware/LOG_SENSOR.md`](../Hardware/LOG_SENSOR.md)**
 - Nilai putih ~222 itu **rendah** — kemungkinan output modul *inverted*.
 	Konfirmasi dengan kertas hitam sebelum menentukan threshold.
-- `Sensor_ReadRaw()` di `Firmware/LF_TED2026/Core/Src/sensor.c` masih stub.
-	Implementasi bisa mengacu pada `sensor_scan()` di `Tests/test_sensor/main.c` setelah GPIO analog dan kanal ADC disesuaikan ke PA0/PA1/PA2/PB1 (kanal 0, 1, 2, 9), serta GPIO selektor mux ke PA3/PB0.
+- `Sensor_ReadRaw()` diimplementasikan di `Line Follower Coding Utama/Core/Src/` (referensi stub awal ada di arsip `Firmware/LF_TED2026/Core/Src/sensor.c`).
+	Implementasi bisa mengacu pada `sensor_scan()` di `Tests/test_sensor/main.c` setelah GPIO analog dan kanal ADC disesuaikan ke PA0/PA1/PA2/PB1 (kanal 0, 1, 2, 9), serta GPIO selektor mux ke PA3/PB0. Note: kode utama hanya boleh berada di `Line Follower Coding Utama/`.
 - Ground bersama adalah syarat mutlak. Tanpa itu semua pengukuran tidak valid.

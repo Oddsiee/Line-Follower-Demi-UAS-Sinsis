@@ -1,6 +1,12 @@
 # Setup STM32CubeIDE
 
-Buat project baru bernama `LF_TED2026` di folder ini (board/MCU aktif: **STM32F411CCUx** — 256 KB Flash / 128 KB RAM, menggantikan rencana awal **STM32F411CEUx** 512 KB Flash yang regulatornya terbakar; untuk CubeMX bisa memakai target `STM32F411CCUx` atau `.ioc` `STM32F411CEUx` yang kompatibel pin/peripheral-nya asalkan kode + parameter tetap <= `256 KB` Flash), simpan `LF_TED2026.ioc` di sini.
+> **PEMBERITAHUAN PENTING (ATURAN LOKASI CODING UTAMA):**
+> Folder `Firmware/LF_TED2026/` **sudah tidak digunakan untuk coding utama**.
+> - Codingan utama robot Line Follower **HANYA** ditulis pada folder **`Line Follower Coding Utama/`** karena file `.ioc` utama (**`Line Follower Coding Utama/Line Follower Coding Utama.ioc`**, MCU **`STM32F401CCU6`**) berada di folder tersebut.
+> - **TIDAK ADA coding untuk robot Line Follower di luar folder `Line Follower Coding Utama/`**.
+> - Tabel pinout di bawah tetap menjadi referensi konfigurasi `.ioc` pada `Line Follower Coding Utama/Line Follower Coding Utama.ioc`.
+
+Project utama berada di folder **`Line Follower Coding Utama/`** dengan file `.ioc` **`Line Follower Coding Utama.ioc`** (target MCU aktif: **`STM32F401CCU6`**). Dokumen ini sebelumnya merujuk ke project lama `LF_TED2026` (`STM32F411CCUx`/`STM32F411CEUx`).
 
 ## Beri User Label sama dengan NetLabel PCB
 CubeMX akan membuat `MUX_IN1_Pin`, `BTN_UP_Pin`, dst. di `main.h`.
